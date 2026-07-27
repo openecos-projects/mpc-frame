@@ -1,0 +1,23 @@
+# Repository whitelist: ignore every root entry unless explicitly admitted.
+/*
+
+!/.gitignore
+!/.github/
+!/LICENSE
+!/Makefile
+!/README.md
+!/FrameTop.sv
+!/docs/
+!/examples/
+!/reference/
+!/rtl/
+
+# Generated artifacts inside admitted source trees.
+**/__pycache__/
+**/*.pyc
+**/*.o
+**/*.log
+**/*.vcd
+**/*.fst
+**/*.fsdb
+**/obj_dir/

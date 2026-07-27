@@ -1,0 +1,6 @@
+name: hello
+image: retrosoc_fw.bin
+max_cycles: 500000
+trace: false
+uart:
+  stop_text: "done!"

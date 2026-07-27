@@ -1,0 +1,22 @@
+name: mpc-soc
+top_module: FrameReferenceSoC
+clock_hz: 50000000
+reset: active_high
+
+rtl:
+  top: hw/soc/top/frame_reference_top.sv
+  filelist: hw/filelist/verilator.f
+
+ip:
+  common: hw/common
+  blocks:
+    - name: uart0
+      path: hw/ip/uart16550
+    - name: gpio
+      path: hw/ip/gpio
+    - name: clint
+      path: hw/ip/clint
+    - name: plic
+      path: hw/ip/plic
+    - name: rcu
+      path: hw/ip/rcu

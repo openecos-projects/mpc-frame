@@ -1,0 +1,58 @@
+address_width: 32
+data_width: 32
+
+reset:
+  pc: 0x30000000
+
+regions:
+  flash:
+    base: 0x30000000
+    size: 0x01000000
+    kind: memory
+    executable: true
+    description: External SPI flash XIP window.
+
+  psram:
+    base: 0xc0000000
+    size: 0x00800000
+    kind: memory
+    executable: true
+    description: External PSRAM window, one 8MiB chip.
+
+  clint:
+    base: 0x02010000
+    size: 0x00010000
+    kind: peripheral
+    description: Core-local interruptor.
+
+  plic:
+    base: 0x0c000000
+    size: 0x00400000
+    kind: peripheral
+    description: Platform-level interrupt controller.
+
+  uart0:
+    base: 0x10000000
+    size: 0x00001000
+    kind: peripheral
+    irq: 2
+    description: UART16550 console.
+
+  rcu:
+    base: 0x10002000
+    size: 0x00001000
+    kind: peripheral
+    description: Reset and clock control unit.
+
+  gpio0:
+    base: 0x10100000
+    size: 0x00001000
+    kind: peripheral
+    irq: 3
+    description: GPIO controller.
+
+interrupts:
+  uart0: 2
+  gpio0: 3
+  software: 4
+  external: 5

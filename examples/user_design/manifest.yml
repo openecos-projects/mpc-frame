@@ -1,0 +1,12 @@
+design_count: 128
+select_width: 7
+payload_io_width: 66
+
+designs:
+  0:
+    name: reference
+    module: ReferenceDesign0
+  1:
+    name: user-design-1
+    module: UserDesign1
+    source: examples/user_design/design1/UserDesign1.sv

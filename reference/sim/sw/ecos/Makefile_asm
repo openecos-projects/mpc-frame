@@ -1,0 +1,28 @@
+.PHONY: all clean
+
+BUILD_DIR = ./build
+CROSS ?= riscv64-unknown-elf-
+AS = $(CROSS)as
+LD = $(CROSS)ld
+OBJDUMP = $(CROSS)objdump
+OBJCOPY = $(CROSS)objcopy
+APP ?= main
+APP_ALL = $(APP)-asm
+LDFLAGS += -T sections.lds
+CLR_RESET := \033[0m
+CLR_STEP := \033[1;32m
+
+all: $(APP).s
+	@mkdir -p $(BUILD_DIR)
+	$(AS) -mabi=ilp32 -march=rv32im $(APP).s -o $(APP_ALL).o
+	$(LD) -m elf32lriscv $(LDFLAGS) $(APP_ALL).o -o $(APP_ALL).elf
+	$(OBJDUMP) -d $(APP_ALL).elf > $(APP_ALL).txt
+	$(OBJCOPY) -S -O binary $(APP_ALL).elf $(APP_ALL).bin
+	@mv $(APP_ALL).bin $(BUILD_DIR)/$(APP_ALL).bin
+	@mv $(APP_ALL).txt $(BUILD_DIR)/$(APP_ALL).txt
+	@mv $(APP_ALL).elf $(BUILD_DIR)/$(APP_ALL).elf
+	@mv $(APP_ALL).o $(BUILD_DIR)/$(APP_ALL).o
+	@printf "$(CLR_STEP)Build $(APP_ALL) done!$(CLR_RESET)\n"
+
+clean:
+	rm -rf $(BUILD_DIR)/*.o $(BUILD_DIR)/*.elf $(BUILD_DIR)/*.bin $(BUILD_DIR)/*.txt

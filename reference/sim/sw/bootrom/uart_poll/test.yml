@@ -1,0 +1,9 @@
+name: uart_poll
+image: uart_poll.bin
+max_cycles: 1000000
+trace: false
+uart:
+  input: "Z"
+  start_cycle: 300000
+  stop_text: "uart poll ok"
+  fail_text: "uart poll fail"

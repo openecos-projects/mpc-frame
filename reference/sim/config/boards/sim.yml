@@ -1,0 +1,5 @@
+board: sim
+clock_hz: 50000000
+memory_image: build/sw/mpc-soc/hello/hello.bin
+trace: fst
+uart_console: stdio
