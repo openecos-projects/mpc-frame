@@ -8,9 +8,15 @@
 !/README.md
 !/FrameTop.sv
 !/docs/
-!/examples/
+!/designs/
 !/reference/
 !/rtl/
+!/scripts/
+!/tests/
+
+# QA notes are local discussion records and are not repository deliverables.
+/docs/*-qa.md
+/docs/qa/
 
 # Generated artifacts inside admitted source trees.
 **/__pycache__/

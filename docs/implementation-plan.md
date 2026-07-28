@@ -1,6 +1,6 @@
 # mpc-frame 工程实施计划
 
-本文档根据 [FrameTop 工程定义 QA](frame-top-qa.md) 制定，描述从当前 RTL 骨架到可供用户使用的芯片模板所需完成的阶段、交付物和验收条件。
+本文档描述从当前 RTL 骨架到可供用户使用的芯片模板所需完成的阶段、交付物和验收条件。已经冻结的设计选择、时钟和复位契约记录在 [Design Control](design-control.md) 中。
 
 ## 当前状态
 
@@ -10,33 +10,35 @@
 - 已支持设计 0 到设计 127 的槽位结构。
 - `user_io[6:0]` 已用于设计选择，`user_io[72:7]` 作为 payload IO。
 - 已加入 `io_in/io_out/io_oe` 和统一 IO mux。
+- 已完成两级设计选择同步、无毛刺时钟门控和内部复位延迟释放。
 - design 0 已接入单 NPC 核参考 SoC，并暴露 UART0、SPI Flash、QSPI PSRAM 和两组 GPIO。
 - 已建立以 `FrameTop` 为顶层的 Verilator 构建与参考设计功能回归。
-- `make lint`、`make lint-user`、`make reference-verilate` 和 `make reference-test` 已通过。
+- 已完成 JSON 用户设计注册、独立 wrapper、design 1 独立测试和 FrameTop 集成测试。
+- `make lint`、`make control-test`、`make stage5-test`、`make reference-verilate` 和 `make reference-test` 构成当前验收入口。
 
-当前 design 0 的参考设计链路已经可运行；后续主要工作是用户槽位自动注册、无毛刺时钟门控、工艺 pad wrapper、约束和 CI。
+当前 design 0 参考链路和 design 1 注册链路均已可运行；后续主要工作是扩展顶层回归、CI、用户交付模板、工艺 pad wrapper 和约束。
 
 ## 阶段计划
 
 | 阶段 | 目标 | 主要工作 | 交付物 | 验收条件 |
 | --- | --- | --- | --- | --- |
-| 0. 契约冻结 | 固定 FrameTop 外部和内部契约 | 确认顶层端口、IO 数量、设计编号、复位采样时序、payload IO 宽度、用户设计 wrapper | `docs/frame-top-qa.md` 定稿、IO map 定稿 | 任何实现都能依据文档接入，不再依赖口头约定 |
+| 0. 契约冻结 | 固定 FrameTop 外部和内部契约 | 确认顶层端口、IO 数量、设计编号、复位采样时序、payload IO 宽度、用户设计 wrapper | README、design control 和 IO map 定稿 | 任何实现都能依据正式设计文档接入，不再依赖口头约定 |
 | 1. 工程边界整理 | 建立稳定的源码和参考工程边界 | 将 `reference/sim` 作为当前仓库固定源码提交；清理 Git 元数据和构建输出；区分参考源码与当前工程构建输出 | 固定的 `reference/sim/` 源码、参考设计版本说明、根目录 Makefile | 新环境直接克隆 `mpc-frame` 即可获得参考设计 |
 | 2. FrameTop 基础结构 | 完成芯片总顶层和 128 槽位 | 保留设计 0～127；实现设计编号锁存；实现选中设计控制；统一 `io_in/io_out/io_oe` | `FrameTop.sv`、`rtl/DesignIoMux.sv`、槽位 wrapper | FrameTop 可独立 lint；非法连接和多重 IO 驱动检查通过 |
-| 3. 设计选择和时钟控制 | 保证运行时选择稳定且无毛刺 | 明确复位期间采样窗口；实现 design ID latch；确定 clock-enable 或工艺 clock-gating cell；处理未选设计 reset/clock 行为 | 设计选择 RTL、时钟控制模块、时序说明 | 选择位在运行期间变化不影响当前设计；无组合时钟毛刺 |
+| 3. 设计选择和时钟控制 | 已完成：保证运行时选择稳定且无毛刺 | 两级同步并锁存 design ID；通用无毛刺 clock gate；未选设计停钟并保持复位；选中设计延迟释放内部复位 | `rtl/FrameDesignControl.sv`、`rtl/FrameClockGate.sv`、`docs/design-control.md` | `make control-test` 已覆盖运行期锁定、重新选择、one-hot、复位、IO 隔离和门控脉冲 |
 | 4. 参考 SoC 接入 | 让设计 0 真正运行精简参考 SoC | 接入单 NPC core、UART0、SPI Flash、单颗 QSPI PSRAM 和 32+22 GPIO | `ReferenceDesign0` 实现、reference IO map、精简 filelist | 已完成：design 0 可从外部 Flash 接口取指并运行 |
-| 5. 用户设计注册 | 让设计 1～127 可由用户独立接入 | 定义每个设计目录格式；实现 manifest 解析或生成 filelist；提供 wrapper 模板；明确空槽位行为 | `examples/`、manifest、设计注册脚本、用户接入文档 | 新增一个用户设计只需新增目录和 manifest，不修改 FrameTop 核心 RTL |
-| 6. FrameTop 仿真 | 建立真正的顶层仿真入口 | 驱动 clock/reset、design ID 和外部 IO；为 Flash/PSRAM 接入条件仿真模型 | Verilator harness、仿真 Makefile | design 0 已完成；design 1 仍待接入回归 |
-| 7. 设计级回归 | 验证选择、mux 和 IO 行为 | 覆盖 design 0、design 1、未注册槽位、复位采样、设计切换禁止、输入回读、输出使能和高阻行为 | testbench、scoreboard、回归配置 | 所有核心场景自动 PASS；未选设计不会影响外部 IO |
+| 5. 用户设计注册 | 已完成：让设计 1～127 可独立测试并按清单集成 | 每个 `designs/<id>/design.json` 自包含源码和测试；根 `registry.json` 只选择最终集成包；生成 standalone wrapper、slot wrapper、registry、filelist 和 `design_present` | `designs/`、注册生成器、`rtl/generated/FrameDesignRegistry.sv`、[用户设计注册](user-design-registration.md) | `make stage5-test` 覆盖独立测试、注册集成和未注册槽位隔离 |
+| 6. FrameTop 仿真 | 建立真正的顶层仿真入口 | 驱动 clock/reset、design ID 和外部 IO；为 Flash/PSRAM 接入条件仿真模型 | Verilator harness、仿真 Makefile | design 0 和 design 1 已接入；后续补统一回归配置和波形入口 |
+| 7. 设计级回归 | 验证选择、mux 和 IO 行为 | 覆盖 design 0、design 1、未注册槽位、复位采样、设计切换禁止、输入回读、输出使能和高阻行为 | testbench、scoreboard、回归配置 | 核心场景已覆盖；后续增加多设计和异常 IO 争用场景 |
 | 8. 根工程质量门禁 | 防止用户接入破坏公共契约 | 增加 lint、filelist 检查、manifest 检查、模块接口检查和 CI | `.github/workflows/ci.yml`、检查脚本 | 每次提交自动完成根工程 lint 和最小仿真 |
-| 9. 用户交付模板 | 形成可复制的用户工程入口 | 完善 example、用户 README、设计目录模板、构建变量、错误提示和 IO map | `examples/user_design/template/`、用户指南 | 用户可以复制模板、注册设计并复用同一仿真命令 |
+| 9. 用户交付模板 | 形成可复制的用户工程入口 | 完善用户 README、设计目录模板、构建变量、错误提示和 IO map | `designs/template/`、用户指南 | 用户可以复制模板、注册设计并复用同一仿真命令 |
 | 10. 流片准备 | 后续接入真实流片流程 | 加入 pad/IO 约束、时钟复位约束、工艺 wrapper、综合和顶层检查脚本 | `constraints/`、综合脚本、流片接口文档 | FrameTop 可进入目标工艺的综合和后续 signoff 流程 |
 
 ## 当前最缺失的内容
 
-### 1. design 1 和用户槽位尚未进入仿真回归
+### 1. 根工程 CI 尚未接入
 
-design 0 已完成参考 SoC 接入和功能回归；下一项功能缺口是让 manifest 实际驱动 design 1～127 的构建和实例化。
+本地已经具备 lint、manifest 负向测试、控制测试、design 独立测试和 FrameTop 回归入口，但还没有在每次提交时自动执行的 CI 工作流。
 
 ### 2. `reference` 需要完成固定源码治理
 
@@ -46,13 +48,13 @@ design 0 已完成参考 SoC 接入和功能回归；下一项功能缺口是让
 
 Flash、PSRAM、UART 和 GPIO 已从 `FrameTop.user_io` 暴露，但还需要目标工艺的 pad cell、引脚位置、电气属性和时序约束。
 
-### 4. 用户 manifest 还没有驱动构建
+### 4. 用户交付模板仍需产品化
 
-目前 `examples/user_design/manifest.yml` 只是描述文件，`FrameTop` 仍然实例化默认 `UserDesignSlot`。还需要生成器或固定 wrapper，使 manifest 中的设计真正进入对应编号槽位。
+`designs/1` 已证明完整流程，但阶段 9 仍需提供可复制的空模板、面向用户的中文接入指南和更清晰的常见错误说明。
 
-### 5. 时钟门控还需要工程化处理
+### 5. 工艺 ICG 映射留待流片阶段
 
-当前骨架使用 `clock & design_selected` 表达“只有选中设计运行”。这只适合说明结构，不能直接作为最终流片实现。后续需要替换为无毛刺 clock-enable 或工艺相关 clock-gating cell。
+通用无毛刺 `FrameClockGate` 已完成并通过行为回归；目标工艺确定后，仍需在阶段 10 将其映射为具体 ICG 标准单元。
 
 ### 6. IO 契约还需要更明确
 
@@ -73,9 +75,9 @@ Flash、PSRAM、UART 和 GPIO 已从 `FrameTop.user_io` 暴露，但还需要目
 2. 固定 `reference/sim` 源码边界和版本说明。
 3. 完成 design 0 的真实接入。
 4. 建立 FrameTop 级最小仿真，先跑 design 0。
-5. 接入 design 1 example 并跑同一仿真入口。
-6. 再实现 manifest 到设计槽位的自动注册。
-7. 最后扩展 CI、回归和流片约束。
+5. 接入 design 1 并跑同一仿真入口。
+6. 实现 manifest 到设计槽位的自动注册。
+7. 扩展 CI、回归、用户模板和流片约束。
 
 ## 阶段完成标准
 

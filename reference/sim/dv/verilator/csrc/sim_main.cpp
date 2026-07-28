@@ -258,7 +258,7 @@ int main(int argc, char** argv) {
 #endif
     context->timeInc(1);
 
-    top->reset = cycle < 10;
+    top->reset = cycle < 20;
     drive_inputs(top.get(), uart_rx.level(cycle), gpio_in, gpio_drive);
     top->clock = 1;
     top->eval();

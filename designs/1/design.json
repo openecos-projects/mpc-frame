@@ -1,0 +1,31 @@
+{
+  "id": 1,
+  "name": "user-design-1",
+  "module": "UserDesign1",
+  "sources": [
+    "rtl/UserDesign1.sv"
+  ],
+  "include_dirs": [],
+  "defines": {},
+  "parameters": {
+    "IO_WIDTH": 66
+  },
+  "tests": [
+    {
+      "name": "io",
+      "kind": "unit",
+      "top": "UserDesignIoTb",
+      "sources": [
+        "tests/UserDesignIoTb.sv"
+      ]
+    },
+    {
+      "name": "frame",
+      "kind": "frame",
+      "top": "FrameDesign1Tb",
+      "sources": [
+        "tests/FrameDesign1Tb.sv"
+      ]
+    }
+  ]
+}

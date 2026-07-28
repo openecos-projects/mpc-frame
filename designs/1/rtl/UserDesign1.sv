@@ -1,4 +1,4 @@
-// Minimal user design example using the internal wrapper contract.
+// Minimal user design used to verify the package and FrameTop workflows.
 
 module UserDesign1 #(
   parameter int IO_WIDTH = 66
@@ -10,20 +10,22 @@ module UserDesign1 #(
   output logic [IO_WIDTH-1:0] io_oe
 );
 
-  logic value;
+  logic toggle_value;
 
   always_ff @(posedge clock) begin
     if (reset)
-      value <= 1'b0;
+      toggle_value <= 1'b0;
     else
-      value <= ~value;
+      toggle_value <= ~toggle_value;
   end
 
   always_comb begin
-    io_out = io_in;
+    io_out = '0;
     io_oe = '0;
-    io_out[0] = value;
+    io_out[0] = toggle_value;
     io_oe[0] = 1'b1;
+    io_out[1] = io_in[2];
+    io_oe[1] = 1'b1;
   end
 
 endmodule

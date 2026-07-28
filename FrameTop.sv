@@ -15,51 +15,59 @@ module FrameTop #(
 
   logic [DESIGN_ID_WIDTH-1:0] design_id;
   logic [PAYLOAD_WIDTH-1:0] payload_in;
+  // A selected design may combinationally read one IO bit and drive another.
+  // The resolved inout vector is otherwise reported as a false flat loop.
+  /* verilator lint_off UNOPTFLAT */
   logic [PAYLOAD_WIDTH-1:0] payload_out;
   logic [PAYLOAD_WIDTH-1:0] payload_oe;
+  /* verilator lint_on UNOPTFLAT */
   logic [DESIGN_COUNT-1:0] design_selected;
+  logic [DESIGN_COUNT-1:0] design_clock_enable;
   logic [DESIGN_COUNT-1:0] design_reset;
+  wire [DESIGN_COUNT-1:0] design_present;
+  logic selection_valid;
   wire  [DESIGN_COUNT-1:0] design_clock;
   wire [DESIGN_COUNT-1:0][PAYLOAD_WIDTH-1:0] designs_io_out;
   wire [DESIGN_COUNT-1:0][PAYLOAD_WIDTH-1:0] designs_io_oe;
 
   assign payload_in = user_io[IO_WIDTH-1:DESIGN_ID_WIDTH];
 
-  // The strap value is stable during reset and remains fixed after reset.
-  always_ff @(posedge clock) begin
-    if (reset)
-      design_id <= user_io[DESIGN_ID_WIDTH-1:0];
-  end
-
-  always_comb begin
-    design_selected = '0;
-    design_selected[design_id] = 1'b1;
-  end
-
-  assign design_reset = {DESIGN_COUNT{reset}} | ~design_selected;
-  assign design_clock = {DESIGN_COUNT{clock}} & design_selected;
-
-  ReferenceDesign0 #(.IO_WIDTH(PAYLOAD_WIDTH)) u_reference_design (
-    .clock  (design_clock[0]), .reset  (design_reset[0]),
-    .io_in  (payload_in), .io_out (designs_io_out[0]), .io_oe (designs_io_oe[0])
+  FrameDesignControl #(
+    .DESIGN_COUNT(DESIGN_COUNT), .DESIGN_ID_WIDTH(DESIGN_ID_WIDTH),
+    .RESET_RELEASE_CYCLES(2)
+  ) u_design_control (
+    .clock(clock), .reset(reset),
+    .async_design_id(user_io[DESIGN_ID_WIDTH-1:0]),
+    .design_present(design_present),
+    .design_id(design_id), .selection_valid(selection_valid),
+    .design_selected(design_selected),
+    .design_clock_enable(design_clock_enable), .design_reset(design_reset)
   );
 
-  genvar design_index;
+  genvar clock_index;
   generate
-    for (design_index = 1; design_index < DESIGN_COUNT; design_index++) begin : g_user_design
-      UserDesignSlot #(.IO_WIDTH(PAYLOAD_WIDTH)) u_user_design (
-        .clock  (design_clock[design_index]), .reset  (design_reset[design_index]),
-        .io_in  (payload_in), .io_out (designs_io_out[design_index]),
-        .io_oe  (designs_io_oe[design_index])
+    for (clock_index = 0; clock_index < DESIGN_COUNT; clock_index++) begin : g_design_clock
+      FrameClockGate u_clock_gate (
+        .clock(clock), .enable(design_clock_enable[clock_index]),
+        .gated_clock(design_clock[clock_index])
       );
     end
   endgenerate
+
+  FrameDesignRegistry #(
+    .IO_WIDTH(PAYLOAD_WIDTH), .DESIGN_COUNT(DESIGN_COUNT)
+  ) u_design_registry (
+    .design_clock(design_clock), .design_reset(design_reset),
+    .io_in(payload_in), .designs_io_out(designs_io_out),
+    .designs_io_oe(designs_io_oe), .design_present(design_present)
+  );
 
   DesignIoMux #(
     .IO_WIDTH(PAYLOAD_WIDTH), .DESIGN_COUNT(DESIGN_COUNT),
     .DESIGN_ID_WIDTH(DESIGN_ID_WIDTH)
   ) u_design_io_mux (
-    .design_id(design_id), .designs_out(designs_io_out), .designs_oe(designs_io_oe),
+    .select_enable(selection_valid), .design_id(design_id),
+    .designs_out(designs_io_out), .designs_oe(designs_io_oe),
     .io_out(payload_out), .io_oe(payload_oe)
   );
 

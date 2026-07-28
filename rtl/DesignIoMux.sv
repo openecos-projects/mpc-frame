@@ -5,6 +5,7 @@ module DesignIoMux #(
   parameter int DESIGN_COUNT = 128,
   parameter int DESIGN_ID_WIDTH = 7
 ) (
+  input  logic select_enable,
   input  logic [DESIGN_ID_WIDTH-1:0] design_id,
   input  wire [DESIGN_COUNT-1:0][IO_WIDTH-1:0] designs_out,
   input  wire [DESIGN_COUNT-1:0][IO_WIDTH-1:0] designs_oe,
@@ -16,7 +17,7 @@ module DesignIoMux #(
     io_out = '0;
     io_oe = '0;
     for (int index = 0; index < DESIGN_COUNT; index++) begin
-      if (design_id == index[DESIGN_ID_WIDTH-1:0]) begin
+      if (select_enable && design_id == index[DESIGN_ID_WIDTH-1:0]) begin
         io_out = designs_out[index];
         io_oe = designs_oe[index];
       end
