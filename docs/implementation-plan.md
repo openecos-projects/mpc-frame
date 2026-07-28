@@ -15,8 +15,9 @@
 - 已建立以 `FrameTop` 为顶层的 Verilator 构建与参考设计功能回归。
 - 已完成 JSON 用户设计注册、独立 wrapper、design 1 独立测试和 FrameTop 集成测试。
 - `make regression-fast` 和 `make regression` 已统一根检查、所有注册设计和 reference 验收入口。
+- 已接入单平台 CI，自动执行源码一致性、FrameTop 快速回归和 reference 完整验收。
 
-当前 design 0 参考链路、两个用户设计和统一回归均已可运行；后续主要工作是 CI、用户交付模板、工艺 pad wrapper 和约束。
+当前 design 0 参考链路、两个用户设计、统一回归和 CI 门禁均已可运行；后续主要工作是用户交付模板、工艺 pad wrapper 和约束。
 
 ## 阶段计划
 
@@ -30,33 +31,29 @@
 | 5. 用户设计注册 | 已完成：让设计 1～127 可独立测试并按清单集成 | 每个 `designs/<id>/design.json` 自包含源码和测试；根 `registry.json` 只选择最终集成包；生成 standalone wrapper、slot wrapper、registry、filelist 和 `design_present` | `designs/`、注册生成器、`rtl/generated/FrameDesignRegistry.sv`、[用户设计注册](user-design-registration.md) | `make stage5-test` 覆盖独立测试、注册集成和未注册槽位隔离 |
 | 6. FrameTop 仿真 | 已完成：建立统一顶层仿真入口 | 统一调度 SV package testbench 和 reference C++ harness；规范日志、FST 波形和 reference JSON 清单 | `scripts/run_regression.py`、`reference/sim/tests.json`、[仿真与回归](simulation-regression.md) | `make frame-test` 可运行 design 0 或任意注册用户设计；`TRACE=1` 产生非空 FST |
 | 7. 设计级回归 | 已完成：验证选择、mux 和多设计 IO 行为 | registry 驱动全部设计测试；覆盖 design 0、design 1、design 2、未注册槽位、复位、停钟、输入回读、高阻和外部 IO 争用检测 | design 2、IO contention monitor、分层日志、快速和完整回归入口 | `make regression-fast` 自动覆盖根契约和所有注册用户设计；`make regression` 增加完整 reference 验收 |
-| 8. 根工程质量门禁 | 防止用户接入破坏公共契约 | 增加 lint、filelist 检查、manifest 检查、模块接口检查和 CI | `.github/workflows/ci.yml`、检查脚本 | 每次提交自动完成根工程 lint 和最小仿真 |
+| 8. 根工程质量门禁 | 已完成：防止用户接入破坏公共契约 | 固定工具版本；检查源码、manifest、filelist 和生成文件；分别执行 FrameTop 与 reference 回归；支持手动 FST | `.github/workflows/ci.yml`、`scripts/ci/install_verilator.sh`、[持续集成](ci.md) | push 和 PR 自动运行三项门禁，失败日志可下载，手动测试可下载波形 |
 | 9. 用户交付模板 | 形成可复制的用户工程入口 | 完善用户 README、设计目录模板、构建变量、错误提示和 IO map | `designs/template/`、用户指南 | 用户可以复制模板、注册设计并复用同一仿真命令 |
 | 10. 流片准备 | 后续接入真实流片流程 | 加入 pad/IO 约束、时钟复位约束、工艺 wrapper、综合和顶层检查脚本 | `constraints/`、综合脚本、流片接口文档 | FrameTop 可进入目标工艺的综合和后续 signoff 流程 |
 
 ## 当前最缺失的内容
 
-### 1. 根工程 CI 尚未接入
-
-本地已经具备 lint、manifest 负向测试、控制测试、design 独立测试和 FrameTop 回归入口，但还没有在每次提交时自动执行的 CI 工作流。
-
-### 2. `reference` 需要完成固定源码治理
+### 1. `reference` 需要完成固定源码治理
 
 当前工作区中的 `reference/` 已经是普通源码目录，但还需要完成提交治理：确认哪些文件属于源码、排除构建输出，并记录参考设计版本和来源变更。
 
-### 3. 流片 pad wrapper 和约束尚未完成
+### 2. 流片 pad wrapper 和约束尚未完成
 
 Flash、PSRAM、UART 和 GPIO 已从 `FrameTop.user_io` 暴露，但还需要目标工艺的 pad cell、引脚位置、电气属性和时序约束。
 
-### 4. 用户交付模板仍需产品化
+### 3. 用户交付模板仍需产品化
 
 `designs/1` 已证明完整流程，但阶段 9 仍需提供可复制的空模板、面向用户的中文接入指南和更清晰的常见错误说明。
 
-### 5. 工艺 ICG 映射留待流片阶段
+### 4. 工艺 ICG 映射留待流片阶段
 
 通用无毛刺 `FrameClockGate` 已完成并通过行为回归；目标工艺确定后，仍需在阶段 10 将其映射为具体 ICG 标准单元。
 
-### 6. IO 契约还需要更明确
+### 5. IO 契约还需要更明确
 
 当前默认是 73 根 IO，其中 7 根用于 design ID，剩余 66 根作为 payload。需要在 IO map 中明确：
 

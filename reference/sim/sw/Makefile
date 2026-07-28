@@ -63,7 +63,6 @@ info:
 	@printf "$(CLR_INFO)BOARD=$(BOARD)$(CLR_RESET)\n"
 	@printf "$(CLR_INFO)APP=$(APP)$(CLR_RESET)\n"
 	@printf "ECOS_OVERLAY_DIR=$(ECOS_OVERLAY_DIR)\n"
-	@printf "ECOS_SDK=$(ECOS_SDK)\n"
 	@printf "BOARD_PACKAGE_DIR=$(BOARD_PACKAGE_DIR)\n"
 	@printf "APP_DIR=$(APP_DIR)\n"
 	@printf "LINK_TARGET=$(LINK_TARGET)\n"

@@ -53,3 +53,7 @@ make regression
 用户包的独立 lint 和测试不要求写入根 registry。需要集成到 `FrameTop` 时，将其 `design.json` 路径加入 `designs/registry.json`，执行 `make registry-generate`，并提交更新后的生成 RTL。完整格式和流程见 [用户设计注册](docs/user-design-registration.md)。
 
 `make regression-fast` 运行根检查及所有已注册用户设计的 lint、unit 和 FrameTop 测试；`make regression` 在此基础上增加 reference Flash 启动、UART、GPIO 和 PSRAM 回归。传入 `TRACE=1` 后，FrameTop 测试的 FST 波形写入 `build/waves/`。完整回归契约见 [仿真与回归](docs/simulation-regression.md)。
+
+GitHub CI 在 push 和 pull request 上分别执行源码一致性、FrameTop 快速回归和
+reference 完整回归，也支持手动生成 FST artifact。配置和门禁说明见
+[持续集成](docs/ci.md)。

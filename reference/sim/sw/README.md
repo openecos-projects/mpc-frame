@@ -10,7 +10,11 @@ sw/
     └── templates/
 ```
 
-## 本地 SDK 构建
+## 本地构建
+
+参考固件只依赖仓库内 BSP 和 `riscv64-unknown-elf` 工具链，不依赖外部
+eCos SDK。Ubuntu 24.04 可安装 `gcc-riscv64-unknown-elf` 和
+`binutils-riscv64-unknown-elf`。
 
 ```sh
 make -C sw info
