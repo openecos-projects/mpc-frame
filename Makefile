@@ -123,6 +123,8 @@ design-test: require-design
 		-f $(DESIGN_UNIT_DIR)/sources.f && \
 	$(DESIGN_UNIT_DIR)/obj/V$$top
 
+# The resolved user_io path appears as a flat combinational cycle to Verilator
+# 5.032. Standalone design-lint keeps UNOPTFLAT enabled for real user RTL loops.
 design-frame-test: require-design registry-filelist registry-check
 	@mkdir -p $(dir $(FRAME_WAVE_FILE))
 	@$(PYTHON) $(REGISTRY_TOOL) design-build --design $(DESIGN_MANIFEST) \
@@ -131,7 +133,7 @@ design-frame-test: require-design registry-filelist registry-check
 	@top=$$(cat $(DESIGN_FRAME_DIR)/top.txt); \
 	$(VERILATOR) --binary --timing --assert --Wall $(FRAME_TRACE_FLAGS) \
 		-Wno-UNUSEDSIGNAL -Wno-UNUSEDPARAM -Wno-DECLFILENAME \
-		-Wno-BLKSEQ $(VERILATOR_PROCASSINIT_FLAG) \
+		-Wno-BLKSEQ -Wno-UNOPTFLAT $(VERILATOR_PROCASSINIT_FLAG) \
 		--Mdir $(DESIGN_FRAME_DIR)/obj --top-module "$$top" \
 		-f $(RTL_FILELIST) -f $(DESIGN_FRAME_DIR)/sources.f && \
 	$(DESIGN_FRAME_DIR)/obj/V$$top

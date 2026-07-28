@@ -158,13 +158,56 @@ make regression-fast
 git diff --check
 ```
 
-To generate a waveform while debugging a Frame test:
+## 7. Find your design in a waveform
+
+First generate a waveform for the Frame test:
 
 ```sh
 make frame-test DESIGN=designs/3 TEST=frame TRACE=1
 ```
 
-The waveform is `build/waves/3/frame.fst`. Do not commit build output or waves.
+The waveform is `build/waves/3/frame.fst`. Open it with GTKWave:
+
+```sh
+gtkwave build/waves/3/frame.fst
+```
+
+In GTKWave's SST hierarchy, expand the scopes from the test top:
+
+```text
+FrameUserDesign3Tb                 Frame test top
+└── dut                            FrameTop instance
+    └── u_design_registry          user design registry
+        └── u_design_3             slot for design 3
+            └── u_design           your UserDesign3 instance
+```
+
+The number and top name change with the selected design. For example, design 17
+uses `u_design_17`. Registers, counters, state machines, and other signals from
+the user's RTL are under the final `u_design` scope.
+
+Add signals in this order:
+
+| Scope | Signals | Purpose |
+| --- | --- | --- |
+| Frame TB | `test_io_out`, `test_io_oe` | Values and drive enables from the external test environment |
+| Frame TB | `user_io` | Resolved levels on all 73 external pins |
+| `dut` | `design_id`, `selection_valid`, `design_selected` | Confirm that the intended design is selected |
+| `dut` | `payload_in`, `payload_out`, `payload_oe` | The 66 user IO bits inside FrameTop |
+| `u_design` | `clock`, `reset`, `io_in`, `io_out`, `io_oe` | Fixed user-design interface |
+| `u_design` | User registers and state signals | Check circuit behavior on each clock cycle |
+
+Do not rely only on the hexadecimal value of a wide bus. Expand it or add the
+relevant slices. For a three-inverter design, compare `io_in[5:3]`,
+`io_out[2:0]`, and `io_oe[2:0]`.
+
+`io_in` reads the current level of every physical pin, including output pins
+driven by the design itself. Therefore, with `io_oe[2:0] = 3'b111`,
+`io_in[2:0]` normally reads back `io_out[2:0]`. This is output readback, not an
+incorrect connection. Use `io_oe` to determine direction: 1 means the design
+drives the pin; 0 means the design releases it for an external input.
+
+Build output and waveforms are stored under `build/`; do not commit them.
 
 ## Common errors
 

@@ -152,13 +152,54 @@ make regression-fast
 git diff --check
 ```
 
-需要调试 Frame 测试时可以生成波形：
+## 7. 在波形中找到自己的设计
+
+需要调试 Frame 测试时，先生成波形：
 
 ```sh
 make frame-test DESIGN=designs/3 TEST=frame TRACE=1
 ```
 
-波形位于 `build/waves/3/frame.fst`，构建产物和波形不要提交。
+波形位于 `build/waves/3/frame.fst`。使用 GTKWave 打开：
+
+```sh
+gtkwave build/waves/3/frame.fst
+```
+
+在 GTKWave 左侧的 SST 层级窗口中，从测试顶层逐层展开：
+
+```text
+FrameUserDesign3Tb                 Frame 测试顶层
+└── dut                            FrameTop 实例
+    └── u_design_registry          用户设计注册表
+        └── u_design_3             design 3 的槽位
+            └── u_design           你的 UserDesign3 实例
+```
+
+如果使用了不同的 design 编号或模块名，层级中的数字和顶层名会相应变化。例如
+design 17 使用 `u_design_17`。真正属于用户 RTL 的内部寄存器、计数器和状态机信号
+位于最后一级 `u_design` 中。
+
+建议按以下顺序添加信号：
+
+| 所在层级 | 信号 | 用途 |
+| --- | --- | --- |
+| Frame TB | `test_io_out`、`test_io_oe` | 测试环境向外部引脚提供的值和驱动开关 |
+| Frame TB | `user_io` | 73 根外部引脚最终解析后的实际电平 |
+| `dut` | `design_id`、`selection_valid`、`design_selected` | 确认目标 design 已被选中 |
+| `dut` | `payload_in`、`payload_out`、`payload_oe` | FrameTop 内部的 66 位用户 IO |
+| `u_design` | `clock`、`reset`、`io_in`、`io_out`、`io_oe` | 用户设计的固定接口 |
+| `u_design` | 用户定义的寄存器或状态信号 | 检查电路每个时钟周期的行为 |
+
+查看宽总线时不要只看完整的十六进制值，可以展开总线或单独加入关心的位。例如
+三路非门应重点比较 `io_in[5:3]`、`io_out[2:0]` 和 `io_oe[2:0]`。
+
+`io_in` 会读取全部物理引脚的当前电平，包括设计自己正在驱动的输出引脚。因此
+当 `io_oe[2:0] = 3'b111` 时，`io_in[2:0]` 通常会读回 `io_out[2:0]`。这叫输出
+回读，不表示输入和输出接错。判断某一位当前方向时应查看 `io_oe`：为 1 是设计
+输出，为 0 是设计释放、由外部输入。
+
+构建产物和波形位于 `build/`，不要提交到仓库。
 
 ## 常见错误
 
