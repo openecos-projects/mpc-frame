@@ -10,12 +10,12 @@ on:
       design:
         description: Design ID or package path
         required: true
-        default: designs/1
+        default: "0"
         type: string
       test:
         description: Frame test name
         required: true
-        default: frame
+        default: boot
         type: string
 
 permissions:

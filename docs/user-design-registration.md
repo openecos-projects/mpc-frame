@@ -60,13 +60,13 @@ continues to expose `clock`.
 ## Standalone flow
 
 ```sh
-make design-lint DESIGN=designs/1
-make design-test DESIGN=designs/1
-make design-test DESIGN=designs/1 TEST=io
+make design-lint DESIGN=designs/<id>
+make design-test DESIGN=designs/<id>
+make design-test DESIGN=designs/<id> TEST=io
 ```
 
 The generator creates a temporary `UserDesignDut.sv` under
-`build/designs/1/` with the stable frame interface. Standalone commands compile
+`build/designs/<id>/` with the stable frame interface. Standalone commands compile
 only the selected package, generated wrapper, and requested user testbench.
 They do not compile the reference SoC, other user packages, or the complete
 128-slot frame.
@@ -76,7 +76,7 @@ They do not compile the reference SoC, other user packages, or the complete
 ```sh
 make registry-check
 make registry-generate
-make design-frame-test DESIGN=designs/1
+make design-frame-test DESIGN=designs/<id>
 ```
 
 `design-frame-test` requires the selected package to be present in the root
@@ -128,7 +128,7 @@ defines, generated outputs, and deterministic regeneration.
 Stage 5 acceptance requires:
 
 - a package can run standalone lint and tests without root registration;
-- design 1 is generated into the registry and runs through `FrameTop`;
+- a temporary smoke-test design is generated and runs through `FrameTop`;
 - input, output, reset, clock gating, and runtime selector locking are tested;
 - an unregistered slot remains stopped, reset, and high impedance;
 - invalid manifests fail with actionable diagnostics;

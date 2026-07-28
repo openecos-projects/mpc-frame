@@ -157,6 +157,8 @@ endmodule
             self.assertEqual(design.module, "MyDesign")
             self.assertEqual({test.kind for test in design.tests}, {"unit", "frame"})
             self.assertTrue((output / "rtl" / "MyDesign.sv").is_file())
+            self.assertTrue((output / "README.md").is_file())
+            self.assertTrue((output / "README.en.md").is_file())
             for generated in output.rglob("*"):
                 if generated.is_file():
                     self.assertNotIn("@MODULE@", generated.read_text(encoding="utf-8"))

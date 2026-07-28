@@ -3,13 +3,23 @@ SHELL := /bin/bash
 VERILATOR ?= verilator
 PYTHON ?= python3
 TRACE ?= 0
+VERILATOR_RECOMMENDED_VERSION := 5.050
+# PROCASSINIT is only a warning switch and is unavailable in some otherwise
+# compatible Verilator releases (including 5.032). Add it only when supported.
+VERILATOR_PROCASSINIT_FLAG := $(shell \
+	tmp=$$(mktemp /tmp/mpc-frame-verilator-probe.XXXXXX.sv); \
+	printf 'module m; endmodule\n' > $$tmp; \
+	if $(VERILATOR) -Wno-PROCASSINIT --lint-only $$tmp >/dev/null 2>&1; then \
+		printf '%s' '-Wno-PROCASSINIT'; \
+	fi; \
+	rm -f $$tmp)
 RTL_FILELIST := $(CURDIR)/rtl/filelist.f
 REGISTRY_TOOL := $(CURDIR)/scripts/design_registry.py
 REGRESSION_TOOL := $(CURDIR)/scripts/run_regression.py
 REGISTRY_MANIFEST := $(CURDIR)/designs/registry.json
 REGISTRY_RTL := $(CURDIR)/rtl/generated/FrameDesignRegistry.sv
 REGISTRY_FILELIST := $(CURDIR)/build/generated/user-designs.f
-DESIGN ?= designs/1
+DESIGN ?=
 DESIGN_MANIFEST := $(if $(filter %.json,$(DESIGN)),$(DESIGN),$(patsubst %/,%,$(DESIGN))/design.json)
 DESIGN_DIR := $(patsubst %/,%,$(dir $(DESIGN_MANIFEST)))
 DESIGN_KEY := $(notdir $(DESIGN_DIR))
@@ -35,7 +45,7 @@ DESIGN_OUTPUT ?= $(CURDIR)/designs/$(DESIGN_ID)
 CREATE_NAME_ARG := $(if $(DESIGN_NAME),--name $(DESIGN_NAME),)
 CREATE_MODULE_ARG := $(if $(DESIGN_MODULE),--module $(DESIGN_MODULE),)
 
-.PHONY: help lint lint-user registry-filelist registry-check registry-generate \
+.PHONY: help require-design verilator-version lint lint-user registry-filelist registry-check registry-generate \
 	create-design design-lint design-test design-frame-test manifest-test stage5-test stage9-test \
 	frame-test regression-fast regression control-test \
 	io-contention-test reference-verilate reference-sim reference-test clean
@@ -43,9 +53,9 @@ CREATE_MODULE_ARG := $(if $(DESIGN_MODULE),--module $(DESIGN_MODULE),)
 help:
 	@printf '%s\n' 'mpc-frame build entry'
 	@printf '%s\n' '  make lint       Lint FrameTop and every registered design'
-	@printf '%s\n' '  make design-lint DESIGN=designs/1'
-	@printf '%s\n' '  make design-test DESIGN=designs/1 [TEST=io]'
-	@printf '%s\n' '  make design-frame-test DESIGN=designs/1 [TEST=frame]'
+	@printf '%s\n' '  make design-lint DESIGN=designs/3'
+	@printf '%s\n' '  make design-test DESIGN=designs/3 [TEST=io]'
+	@printf '%s\n' '  make design-frame-test DESIGN=designs/3 [TEST=frame]'
 	@printf '%s\n' '  make create-design DESIGN_ID=3 [DESIGN_NAME=name] [DESIGN_MODULE=Top]'
 	@printf '%s\n' '  make frame-test DESIGN=<0|designs/id> [TEST=name] [TRACE=1]'
 	@printf '%s\n' '  make regression-fast [TRACE=1]  Run all registered design tests'
@@ -58,6 +68,15 @@ help:
 	@printf '%s\n' '  make reference-verilate  Build the reference design through FrameTop'
 	@printf '%s\n' '  make reference-sim       Run a reference image through FrameTop'
 	@printf '%s\n' '  make reference-test      Run the complete FrameTop reference acceptance test'
+	@printf '%s\n' '  make verilator-version   Show installed and recommended Verilator versions'
+
+require-design:
+	@test -n "$(DESIGN)" || (printf '%s\n' \
+		'ERROR: DESIGN is required, for example DESIGN=designs/3'; exit 2)
+
+verilator-version:
+	@$(VERILATOR) --version
+	@printf '%s\n' 'Recommended Verilator version: $(VERILATOR_RECOMMENDED_VERSION)'
 
 registry-filelist:
 	@$(PYTHON) $(REGISTRY_TOOL) registry-filelist \
@@ -83,7 +102,7 @@ lint: registry-filelist registry-check
 		-Wno-UNUSEDSIGNAL -Wno-UNUSEDPARAM -Wno-DECLFILENAME \
 		--top-module FrameTop -f $(RTL_FILELIST)
 
-design-lint:
+design-lint: require-design
 	@$(PYTHON) $(REGISTRY_TOOL) design-build --design $(DESIGN_MANIFEST) \
 		--output-dir $(DESIGN_LINT_DIR)
 	@top=$$(cat $(DESIGN_LINT_DIR)/top.txt); \
@@ -93,18 +112,18 @@ design-lint:
 
 lint-user: design-lint
 
-design-test:
+design-test: require-design
 	@$(PYTHON) $(REGISTRY_TOOL) design-build --design $(DESIGN_MANIFEST) \
 		--output-dir $(DESIGN_UNIT_DIR) --kind unit $(TEST_ARG)
 	@top=$$(cat $(DESIGN_UNIT_DIR)/top.txt); \
 	$(VERILATOR) --binary --timing --assert --Wall \
 		-Wno-UNUSEDSIGNAL -Wno-UNUSEDPARAM -Wno-DECLFILENAME \
-		-Wno-BLKSEQ -Wno-PROCASSINIT \
+		-Wno-BLKSEQ $(VERILATOR_PROCASSINIT_FLAG) \
 		--Mdir $(DESIGN_UNIT_DIR)/obj --top-module "$$top" \
 		-f $(DESIGN_UNIT_DIR)/sources.f && \
 	$(DESIGN_UNIT_DIR)/obj/V$$top
 
-design-frame-test: registry-filelist registry-check
+design-frame-test: require-design registry-filelist registry-check
 	@mkdir -p $(dir $(FRAME_WAVE_FILE))
 	@$(PYTHON) $(REGISTRY_TOOL) design-build --design $(DESIGN_MANIFEST) \
 		--output-dir $(DESIGN_FRAME_DIR) --kind frame \
@@ -112,7 +131,7 @@ design-frame-test: registry-filelist registry-check
 	@top=$$(cat $(DESIGN_FRAME_DIR)/top.txt); \
 	$(VERILATOR) --binary --timing --assert --Wall $(FRAME_TRACE_FLAGS) \
 		-Wno-UNUSEDSIGNAL -Wno-UNUSEDPARAM -Wno-DECLFILENAME \
-		-Wno-BLKSEQ -Wno-PROCASSINIT \
+		-Wno-BLKSEQ $(VERILATOR_PROCASSINIT_FLAG) \
 		--Mdir $(DESIGN_FRAME_DIR)/obj --top-module "$$top" \
 		-f $(RTL_FILELIST) -f $(DESIGN_FRAME_DIR)/sources.f && \
 	$(DESIGN_FRAME_DIR)/obj/V$$top
@@ -120,12 +139,12 @@ design-frame-test: registry-filelist registry-check
 manifest-test:
 	@$(PYTHON) -m unittest discover -s tests/registry -p 'test_*.py'
 
-stage5-test: manifest-test design-test design-frame-test
+stage5-test: stage9-test
 
 stage9-test: manifest-test
 	@$(PYTHON) $(CURDIR)/scripts/test_user_template.py
 
-frame-test:
+frame-test: require-design
 	@$(PYTHON) $(REGRESSION_TOOL) --root $(CURDIR) --trace $(TRACE) frame \
 		--design $(DESIGN) $(TEST_ARG)
 
@@ -141,19 +160,21 @@ control-test:
 	@mkdir -p $(CONTROL_TEST_DIR)
 	@$(VERILATOR) --binary --timing --assert --Wall \
 		-Wno-UNUSEDSIGNAL -Wno-UNUSEDPARAM -Wno-DECLFILENAME \
-		-Wno-BLKSEQ -Wno-PROCASSINIT \
+		-Wno-BLKSEQ $(VERILATOR_PROCASSINIT_FLAG) \
 		--Mdir $(CONTROL_TEST_DIR) --top-module FrameControlTb \
 		rtl/FrameClockGate.sv rtl/FrameDesignControl.sv rtl/DesignIoMux.sv \
 		tests/control/FrameControlTb.sv
 	@$(CONTROL_TEST_DIR)/VFrameControlTb
 
-io-contention-test: registry-filelist registry-check
+io-contention-test:
 	@mkdir -p $(CONTENTION_TEST_DIR)
 	@$(VERILATOR) --binary --timing --assert --Wall \
 		-Wno-UNUSEDSIGNAL -Wno-UNUSEDPARAM -Wno-DECLFILENAME \
-		-Wno-BLKSEQ -Wno-PROCASSINIT \
+		-Wno-BLKSEQ $(VERILATOR_PROCASSINIT_FLAG) \
 		--Mdir $(CONTENTION_TEST_DIR) --top-module FrameIoContentionTb \
-		-f $(RTL_FILELIST) tests/frame/FrameIoContentionTb.sv
+		rtl/FrameClockGate.sv rtl/FrameDesignControl.sv rtl/DesignIoMux.sv \
+		tests/frame/FrameIoContentionRegistry.sv FrameTop.sv \
+		tests/frame/FrameIoContentionTb.sv
 	@$(CONTENTION_TEST_DIR)/VFrameIoContentionTb
 
 reference-verilate: registry-filelist registry-check

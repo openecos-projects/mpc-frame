@@ -1,21 +1,66 @@
 # @PACKAGE_NAME@
 
-- Design ID: `@DESIGN_ID@`
-- Top module: `@MODULE@`
+[English](README.en.md)
 
-`rtl/@MODULE@.sv` 中的 heartbeat 和输入回读只是可运行示例，请替换为实际设计，
-并同步修改 `tests/` 中的检查。保持 `clock/reset/io_in/io_out/io_oe` 五端口契约。
+这是你的设计目录。你通常只需要修改 RTL 和两个测试文件，不需要修改
+`FrameTop.sv` 或根目录下的 RTL。
 
-独立检查：
+## 先认识这些文件
+
+| 文件 | 用途 | 是否需要修改 |
+| --- | --- | --- |
+| `rtl/@MODULE@.sv` | 你的电路代码 | 是，替换示例逻辑 |
+| `tests/@MODULE@Tb.sv` | 只测试你的电路 | 是，检查你的实际功能 |
+| `tests/Frame@MODULE@Tb.sv` | 测试电路接入整个工程后是否正常 | 是，检查外部引脚和 design 选择 |
+| `design.json` | 告诉构建工具源码和测试在哪里 | 通常不需要 |
+
+设计编号是 `@DESIGN_ID@`，顶层模块名是 `@MODULE@`。
+
+## 第一步：实现电路
+
+打开 `rtl/@MODULE@.sv`，替换其中的示例逻辑。模块最外层的五个端口是工程与
+你的电路之间的固定连接，初次使用时不要改名或删除：
+
+- `clock`：时钟；纯组合电路可以不用，但必须保留端口。
+- `reset`：复位；不需要复位的电路可以不用，但必须保留端口。
+- `io_in[65:0]`：从外部引脚读到的 66 位输入。
+- `io_out[65:0]`：准备送到外部引脚的 66 位输出值。
+- `io_oe[65:0]`：输出开关；某一位为 1 时才会驱动对应外部引脚。
+
+`io_*[n]` 对应芯片顶层的 `user_io[n + 7]`。例如，`io_in[0]` 对应
+`user_io[7]`。
+
+## 第二步：修改测试
+
+两个 TB 文件开头都标明了哪些部分通常保留、哪些部分应按设计修改。
+
+先修改 `tests/@MODULE@Tb.sv`，测试你的电路功能。然后运行：
 
 ```sh
 make design-lint DESIGN=designs/@DESIGN_ID@
 make design-test DESIGN=designs/@DESIGN_ID@ TEST=io
 ```
 
-加入 `designs/registry.json` 并执行 `make registry-generate` 后运行：
+看到测试文件中 `$display` 输出的 `PASS`，并且 make 正常结束，才表示测试通过。
+
+## 第三步：接入 FrameTop
+
+独立测试通过后，把 `"@DESIGN_ID@/design.json"` 加入根目录的
+`designs/registry.json`，再运行：
 
 ```sh
+make registry-generate
+make registry-check
 make design-frame-test DESIGN=designs/@DESIGN_ID@ TEST=frame
+```
+
+最后运行提交前检查：
+
+```sh
 make regression-fast
 ```
+
+推荐使用 Verilator 5.050；工程也验证过 5.032。构建脚本会自动跳过旧版本不认识
+的非关键警告参数。低于 5.032 的版本没有经过验证。
+
+完整中文步骤见 `docs/user-guide.md`。

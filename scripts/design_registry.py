@@ -23,6 +23,7 @@ TEMPLATE_FILES = {
     "tests/UserDesignTb.sv.in": "tests/{module}Tb.sv",
     "tests/FrameUserDesignTb.sv.in": "tests/Frame{module}Tb.sv",
     "README.md.in": "README.md",
+    "README.en.md.in": "README.en.md",
 }
 
 

@@ -7,7 +7,7 @@
 运行注册用户设计：
 
 ```sh
-make frame-test DESIGN=designs/1 TEST=frame
+make frame-test DESIGN=designs/<id> TEST=frame
 ```
 
 运行 reference 测试：
@@ -52,7 +52,7 @@ build/logs/reference/
 默认不生成波形。传入 `TRACE=1` 后生成 FST：
 
 ```sh
-make frame-test DESIGN=designs/2 TEST=frame TRACE=1
+make frame-test DESIGN=designs/<id> TEST=frame TRACE=1
 make frame-test DESIGN=0 TEST=boot TRACE=1
 make regression-fast TRACE=1
 ```

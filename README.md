@@ -1,5 +1,7 @@
 # mpc-frame
 
+[English](README.en.md)
+
 `mpc-frame` 是一个用于拼片的顶层空壳模板工程，并附带一个独立的 SoC 参考设计。
 
 `FrameTop` 是芯片总顶层，设计 0 固定为参考设计，设计 1 到设计 127 通过 JSON registry 注册。拼片用户通过统一的 `clock/reset/io_in/io_out/io_oe` 语义接口接入自己的设计。
@@ -21,8 +23,8 @@
 - `rtl/ReferenceDesign0.sv`：参考设计 adapter 边界。
 - `designs/registry.json`：参与 FrameTop 集成的用户设计清单。
 - `designs/template/`：通过 `make create-design` 使用的用户 package 模板。
-- `designs/1/`：可独立 lint 和仿真的用户设计包示例。
-- `designs/2/`：用于多设计注册、选择和隔离回归的最小设计。
+- `designs/<id>/`：用户通过 `make create-design` 创建的个人设计目录；仓库不
+  预放内部测试设计。
 - `scripts/design_registry.py`：manifest 校验与 wrapper/registry 生成器。
 - `rtl/generated/FrameDesignRegistry.sv`：已提交的确定性生成结果。
 - `docs/io-map.md`：用户自定义 pad 编号说明。
@@ -49,16 +51,20 @@ make create-design DESIGN_ID=3
 ```sh
 make lint
 make control-test
-make design-lint DESIGN=designs/1
-make design-test DESIGN=designs/1
-make design-frame-test DESIGN=designs/1
-make frame-test DESIGN=designs/1 TEST=frame
+make design-lint DESIGN=designs/3
+make design-test DESIGN=designs/3
+make design-frame-test DESIGN=designs/3
+make frame-test DESIGN=designs/3 TEST=frame
 make frame-test DESIGN=0 TEST=boot
 make registry-check
 make stage9-test
 make regression-fast
 make regression
 ```
+
+推荐使用 Verilator 5.050；工程也验证过 5.032。低于 5.032 的版本未验证。
+Makefile 会先检测非关键警告参数是否受支持，不会因为旧版本不认识
+`-Wno-PROCASSINIT` 而中止。
 
 用户包的独立 lint 和测试不要求写入根 registry。需要集成到 `FrameTop` 时，将其 `design.json` 路径加入 `designs/registry.json`，执行 `make registry-generate`，并提交更新后的生成 RTL。完整格式和流程见 [用户设计注册](docs/user-design-registration.md)。
 

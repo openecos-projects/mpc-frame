@@ -1,0 +1,68 @@
+# @PACKAGE_NAME@
+
+[中文说明](README.md)
+
+This is your design directory. In normal use, you only edit the RTL and the
+two test files. You do not need to change `FrameTop.sv` or the root RTL files.
+
+## Files in this directory
+
+| File | Purpose | Edit it? |
+| --- | --- | --- |
+| `rtl/@MODULE@.sv` | Your circuit | Yes; replace the example logic |
+| `tests/@MODULE@Tb.sv` | Tests only your circuit | Yes; check your real behavior |
+| `tests/Frame@MODULE@Tb.sv` | Tests your circuit through the full frame | Yes; check pins and design selection |
+| `design.json` | Tells the build tools where sources and tests are | Usually no |
+
+The design ID is `@DESIGN_ID@`, and the top module is `@MODULE@`.
+
+## Step 1: Implement the circuit
+
+Open `rtl/@MODULE@.sv` and replace the example logic. Keep the five top-level
+ports. They are the fixed connection between your circuit and the frame:
+
+- `clock`: clock input. A combinational circuit may ignore it, but keep it.
+- `reset`: reset input. A circuit without reset may ignore it, but keep it.
+- `io_in[65:0]`: 66 input values read from the external pins.
+- `io_out[65:0]`: 66 values your circuit wants to send to external pins.
+- `io_oe[65:0]`: output switches. Bit `n` must be 1 to drive pin `n`.
+
+`io_*[n]` maps to `user_io[n + 7]` at the chip top. For example, `io_in[0]`
+maps to `user_io[7]`.
+
+## Step 2: Update the tests
+
+Both TB files mark the sections that are normally kept and the sections that
+you should edit for your design.
+
+First update `tests/@MODULE@Tb.sv`, then run:
+
+```sh
+make design-lint DESIGN=designs/@DESIGN_ID@
+make design-test DESIGN=designs/@DESIGN_ID@ TEST=io
+```
+
+The test passes only when its `$display` prints `PASS` and make exits normally.
+
+## Step 3: Connect the design to FrameTop
+
+After the standalone test passes, add `"@DESIGN_ID@/design.json"` to the root
+`designs/registry.json`, then run:
+
+```sh
+make registry-generate
+make registry-check
+make design-frame-test DESIGN=designs/@DESIGN_ID@ TEST=frame
+```
+
+Before submitting, run:
+
+```sh
+make regression-fast
+```
+
+Verilator 5.050 is recommended, and 5.032 is also tested. The build scripts
+skip nonessential warning flags that an older version does not recognize.
+Versions older than 5.032 are not tested.
+
+See `docs/user-guide.en.md` for the complete English workflow.

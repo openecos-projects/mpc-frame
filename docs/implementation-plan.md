@@ -13,7 +13,7 @@
 - 已完成两级设计选择同步、无毛刺时钟门控和内部复位延迟释放。
 - design 0 已接入单 NPC 核参考 SoC，并暴露 UART0、SPI Flash、QSPI PSRAM 和两组 GPIO。
 - 已建立以 `FrameTop` 为顶层的 Verilator 构建与参考设计功能回归。
-- 已完成 JSON 用户设计注册、独立 wrapper、design 1 独立测试和 FrameTop 集成测试。
+- 已完成 JSON 用户设计注册、独立 wrapper、临时用户设计测试和 FrameTop 集成测试。
 - `make regression-fast` 和 `make regression` 已统一根检查、所有注册设计和 reference 验收入口。
 - 已接入单平台 CI，自动执行源码一致性、FrameTop 快速回归和 reference 完整验收。
 - 已提供可生成的用户 package 模板、中文接入指南和端到端模板验收。
@@ -31,7 +31,7 @@
 | 4. 参考 SoC 接入 | 让设计 0 真正运行精简参考 SoC | 接入单 NPC core、UART0、SPI Flash、单颗 QSPI PSRAM 和 32+22 GPIO | `ReferenceDesign0` 实现、reference IO map、精简 filelist | 已完成：design 0 可从外部 Flash 接口取指并运行 |
 | 5. 用户设计注册 | 已完成：让设计 1～127 可独立测试并按清单集成 | 每个 `designs/<id>/design.json` 自包含源码和测试；根 `registry.json` 只选择最终集成包；生成 standalone wrapper、slot wrapper、registry、filelist 和 `design_present` | `designs/`、注册生成器、`rtl/generated/FrameDesignRegistry.sv`、[用户设计注册](user-design-registration.md) | `make stage5-test` 覆盖独立测试、注册集成和未注册槽位隔离 |
 | 6. FrameTop 仿真 | 已完成：建立统一顶层仿真入口 | 统一调度 SV package testbench 和 reference C++ harness；规范日志、FST 波形和 reference JSON 清单 | `scripts/run_regression.py`、`reference/sim/tests.json`、[仿真与回归](simulation-regression.md) | `make frame-test` 可运行 design 0 或任意注册用户设计；`TRACE=1` 产生非空 FST |
-| 7. 设计级回归 | 已完成：验证选择、mux 和多设计 IO 行为 | registry 驱动全部设计测试；覆盖 design 0、design 1、design 2、未注册槽位、复位、停钟、输入回读、高阻和外部 IO 争用检测 | design 2、IO contention monitor、分层日志、快速和完整回归入口 | `make regression-fast` 自动覆盖根契约和所有注册用户设计；`make regression` 增加完整 reference 验收 |
+| 7. 设计级回归 | 已完成：验证选择、mux 和多设计 IO 行为 | registry 驱动全部正式设计测试；临时 smoke design 覆盖用户接入，根测试覆盖未注册槽位、复位、停钟、高阻和外部 IO 争用检测 | 临时测试 package、IO contention monitor、分层日志、快速和完整回归入口 | `make regression-fast` 自动覆盖根契约和所有注册用户设计；`make regression` 增加完整 reference 验收 |
 | 8. 根工程质量门禁 | 已完成：防止用户接入破坏公共契约 | 固定工具版本；检查源码、manifest、filelist 和生成文件；分别执行 FrameTop 与 reference 回归；支持手动 FST | `.github/workflows/ci.yml`、`scripts/ci/install_verilator.sh`、[持续集成](ci.md) | push 和 PR 自动运行三项门禁，失败日志可下载，手动测试可下载波形 |
 | 9. 用户交付模板 | 已完成：形成可生成、可独立验证的用户工程入口 | 一键生成 package；提供 RTL、unit/FrameTop test、中文指南、冲突诊断和明确 IO map；CI 执行端到端模板 smoke test | `designs/template/`、`make create-design`、`make stage9-test`、[用户设计接入指南](user-guide.md) | 全新 package 可独立 lint 和 unit test，并通过临时 registry 接入 FrameTop，不修改正式 registry 或根 RTL |
 | 10. 流片准备 | 后续接入真实流片流程 | 加入 pad/IO 约束、时钟复位约束、工艺 wrapper、综合和顶层检查脚本 | `constraints/`、综合脚本、流片接口文档 | FrameTop 可进入目标工艺的综合和后续 signoff 流程 |
@@ -55,7 +55,7 @@ Flash、PSRAM、UART 和 GPIO 已从 `FrameTop.user_io` 暴露，但还需要目
 2. 固定 `reference/sim` 源码边界和版本说明。
 3. 完成 design 0 的真实接入。
 4. 建立 FrameTop 级最小仿真，先跑 design 0。
-5. 接入 design 1 并跑同一仿真入口。
+5. 创建临时 design package 并通过同一仿真入口接入验证。
 6. 实现 manifest 到设计槽位的自动注册。
 7. 扩展 CI、回归、用户模板和流片约束。
 
