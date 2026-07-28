@@ -17,39 +17,39 @@ reset = 1     -> counter = 0
 | 32 位计数值 | `io_out[31:0]` | `user_io[38:7]` |
 | design 编号 | 用户设计不可见 | `user_io[6:0]` |
 
-本例没有外部输入，全部 32 根计数值引脚都由设计驱动。本示例使用 design ID 2；
-如果编号 2 已被占用，请换成其他未注册编号，并同步替换命令、文件名和 design ID。
+本例没有外部输入，全部 32 根计数值引脚都由设计驱动。package 名称为
+`counter32`；用户不选择 design ID，Frame 测试会自动分配临时 ID。
 
 ## 1. 创建设计
 
 在仓库根目录运行：
 
 ```sh
-make create-design DESIGN_ID=2
+make create-design DESIGN_NAME=counter32
 ```
 
 命令会创建：
 
 ```text
-designs/2/
+designs/counter32/
 ├── README.md
 ├── README.en.md
 ├── design.json
-├── rtl/UserDesign2.sv
+├── rtl/Counter32.sv
 └── tests/
-    ├── UserDesign2Tb.sv
-    └── FrameUserDesign2Tb.sv
+    ├── Counter32Tb.sv
+    └── FrameCounter32Tb.sv
 ```
 
-`UserDesign2Tb.sv` 直接测试计数器；`FrameUserDesign2Tb.sv` 测试计数值经过
+`Counter32Tb.sv` 直接测试计数器；`FrameCounter32Tb.sv` 测试计数值经过
 FrameTop 后能否从外部引脚正确读出。
 
 ## 2. 编写 32 位计数器
 
-用以下内容替换 `designs/2/rtl/UserDesign2.sv`：
+用以下内容替换 `designs/counter32/rtl/Counter32.sv`：
 
 ```systemverilog
-module UserDesign2 #(
+module Counter32 #(
   parameter int IO_WIDTH = 66
 ) (
   input  logic                clock,
@@ -88,7 +88,7 @@ endmodule
 
 ## 3. 编写单元测试
 
-打开 `designs/2/tests/UserDesign2Tb.sv`，保留模块声明、时钟、信号和
+打开 `designs/counter32/tests/Counter32Tb.sv`，保留模块声明、时钟、信号和
 `UserDesignDut` 实例，用下面内容替换原来的 `initial begin ... end`：
 
 ```systemverilog
@@ -135,7 +135,7 @@ initial begin
   if (io_out[31:0] !== 32'b0)
     $fatal(1, "counter did not reset a second time");
 
-  $display("USER DESIGN 2 COUNTER UNIT TEST PASS");
+  $display("COUNTER32 COUNTER UNIT TEST PASS");
   $finish;
 end
 ```
@@ -143,42 +143,26 @@ end
 先运行独立 lint，再运行测试：
 
 ```sh
-make design-lint DESIGN=designs/2
-make design-test DESIGN=designs/2 TEST=io
+make user-lint
+make user-test
 ```
 
 成功时会看到：
 
 ```text
-USER DESIGN 2 COUNTER UNIT TEST PASS
+COUNTER32 COUNTER UNIT TEST PASS
 ```
 
 测试在时钟上升沿之后等待 `#1ns` 再读取结果，是为了让非阻塞赋值完成更新。
 
-## 4. 注册到 FrameTop
+## 4. 临时接入 FrameTop
 
-独立测试通过后，在根目录的 `designs/registry.json` 中加入 design 2：
-
-```json
-{
-  "designs": [
-    "2/design.json"
-  ]
-}
-```
-
-如果已有其他正式设计，只追加条目，不要删除原有内容。然后运行：
-
-```sh
-make registry-generate
-make registry-check
-```
-
-不要手工修改生成的 `rtl/generated/FrameDesignRegistry.sv`。
+用户不需要修改正式 registry。`user-frame-test` 会为 `counter32` 选择空闲临时 ID，
+并在 `build/` 中生成本次测试专用的 registry。
 
 ## 5. 编写 Frame 集成测试
 
-打开 `designs/2/tests/FrameUserDesign2Tb.sv`，保留模块声明、时钟、三态连接和
+打开 `designs/counter32/tests/FrameCounter32Tb.sv`，保留模块声明、时钟、三态连接和
 `FrameTop dut` 实例，用下面内容替换原来的 `initial begin ... end`：
 
 ```systemverilog
@@ -186,7 +170,7 @@ initial begin
   logic [31:0] count_snapshot;
   logic [31:0] expected;
 
-  // reset 期间通过 user_io[6:0] 选择 design 2。
+  // DESIGN_ID 由构建工具注入；reset 期间通过 user_io[6:0] 选择它。
   test_io_oe[DESIGN_ID_WIDTH-1:0] = '1;
   test_io_out[DESIGN_ID_WIDTH-1:0] = DESIGN_ID;
 
@@ -197,7 +181,7 @@ initial begin
   #1ns;
 
   if (!dut.selection_valid || !dut.design_selected[DESIGN_ID])
-    $fatal(1, "design 2 was not selected through FrameTop");
+    $fatal(1, "counter32 was not selected through FrameTop");
 
   // user_io[38:7] 是设计的 io_out[31:0]。测试平台必须保持释放。
   test_io_oe[
@@ -231,7 +215,7 @@ initial begin
     end
   end
 
-  $display("USER DESIGN 2 COUNTER FRAME TEST PASS");
+  $display("COUNTER32 COUNTER FRAME TEST PASS");
   $finish;
 end
 ```
@@ -242,37 +226,39 @@ end
 运行：
 
 ```sh
-make design-lint DESIGN=designs/2
-make design-frame-test DESIGN=designs/2 TEST=frame
+make user-lint
+make user-frame-test
 ```
 
 成功时会看到：
 
 ```text
-USER DESIGN 2 COUNTER FRAME TEST PASS
+COUNTER32 COUNTER FRAME TEST PASS
 ```
 
 ## 6. 生成并查看波形
 
 ```sh
-make frame-test DESIGN=designs/2 TEST=frame TRACE=1
-gtkwave build/waves/2/frame.fst
+make user-frame-test TRACE=1
+gtkwave build/waves/counter32/frame.fst
 ```
+
+先读取 `build/designs/counter32/frame/selected-id.txt`。假设其中为 `1`，展开：
 
 在 GTKWave 的 SST 窗口中展开：
 
 ```text
-FrameUserDesign2Tb
+FrameCounter32Tb
 └── dut
     └── u_design_registry
-        └── u_design_2
+        └── u_design_1
             └── u_design
 ```
 
 建议观察：
 
 - `clock` 和 `reset`；
-- FrameTop 中的 `selection_valid` 和 `design_selected[2]`；
+- FrameTop 中的 `selection_valid` 和临时 ID 对应的 `design_selected` 位；
 - 用户设计中的 `counter`、`io_out[31:0]` 和 `io_oe[31:0]`；
 - TB 中的 `user_io[38:7]`。
 
@@ -291,14 +277,14 @@ user_io[38:7]:   1    2    3    4
 ## 7. 提交前检查
 
 ```sh
-make regression-fast
+make user-check
 make docs-check
 git diff --check
 git status --short
 ```
 
-需要提交 `designs/2/`、`designs/registry.json` 和重新生成的 registry RTL。
-不要提交 `build/` 或 FST 波形。
+普通用户只提交 `designs/counter32/`。不要修改正式 registry，也不要提交 `build/`
+或 FST 波形。
 
 ## 常见错误
 

@@ -3,7 +3,7 @@
 [English](three-inverter.en.md)
 
 本文以一个简单的三路一位非门为例，完整演示如何创建用户设计、编写 RTL、编写
-两层测试、注册到 FrameTop，以及查看波形。完成后的电路关系是：
+两层测试、通过临时槽位接入 FrameTop，以及查看波形。完成后的电路关系是：
 
 ```text
 io_in[3] -> 非门 -> io_out[0]
@@ -19,39 +19,39 @@ io_in[5] -> 非门 -> io_out[2]
 | 三个输出 | `io_out[2:0]` | `user_io[9:7]` |
 | design 编号 | 用户设计不可见 | `user_io[6:0]` |
 
-本示例使用 design ID 1。如果 1 已被占用，请换成其他未注册编号，并同步替换命令、
-文件名和文中的 design ID。
+本示例的 package 名称是 `three-inverter`。用户不选择 design ID；Frame 测试会
+自动分配临时 ID，最终 ID 由维护者合并时分配。
 
-## 1. 创建 design 1
+## 1. 创建设计
 
 在仓库根目录运行：
 
 ```sh
-make create-design DESIGN_ID=1
+make create-design DESIGN_NAME=three-inverter
 ```
 
 命令会生成：
 
 ```text
-designs/1/
+designs/three-inverter/
 ├── README.md
 ├── README.en.md
 ├── design.json
-├── rtl/UserDesign1.sv
+├── rtl/ThreeInverter.sv
 └── tests/
-    ├── UserDesign1Tb.sv
-    └── FrameUserDesign1Tb.sv
+    ├── ThreeInverterTb.sv
+    └── FrameThreeInverterTb.sv
 ```
 
-`UserDesign1Tb.sv` 只测试非门本身；`FrameUserDesign1Tb.sv` 测试信号经过
+`ThreeInverterTb.sv` 只测试非门本身；`FrameThreeInverterTb.sv` 测试信号经过
 `user_io` 和 FrameTop 后是否仍然正确。
 
 ## 2. 编写三路非门
 
-用以下内容替换 `designs/1/rtl/UserDesign1.sv`：
+用以下内容替换 `designs/three-inverter/rtl/ThreeInverter.sv`：
 
 ```systemverilog
-module UserDesign1 #(
+module ThreeInverter #(
   parameter int IO_WIDTH = 66
 ) (
   input  logic                clock,
@@ -82,7 +82,7 @@ endmodule
 
 ## 3. 编写单元测试
 
-打开 `designs/1/tests/UserDesign1Tb.sv`，保留模块声明、信号和
+打开 `designs/three-inverter/tests/ThreeInverterTb.sv`，保留模块声明、信号和
 `UserDesignDut` 实例，用下面内容替换原来的 `initial begin ... end`：
 
 ```systemverilog
@@ -115,7 +115,7 @@ initial begin
       $fatal(1, "unused output bits are not zero");
   end
 
-  $display("USER DESIGN 1 UNIT TEST PASS");
+  $display("THREE INVERTER UNIT TEST PASS");
   $finish;
 end
 ```
@@ -124,50 +124,34 @@ end
 结构问题：
 
 ```sh
-make design-lint DESIGN=designs/1
+make user-lint
 ```
 
 lint 通过后再运行单元测试：
 
 ```sh
-make design-test DESIGN=designs/1 TEST=io
+make user-test
 ```
 
 成功时会看到：
 
 ```text
-USER DESIGN 1 UNIT TEST PASS
+THREE INVERTER UNIT TEST PASS
 ```
 
-## 4. 注册到 FrameTop
+## 4. 临时接入 FrameTop
 
-独立测试通过后，打开根目录的 `designs/registry.json`，加入 design 1：
-
-```json
-{
-  "designs": [
-    "1/design.json"
-  ]
-}
-```
-
-如果清单中已有其他正式设计，只追加新的一行，不要删除原有条目。然后运行：
-
-```sh
-make registry-generate
-make registry-check
-```
-
-生成器会更新 `rtl/generated/FrameDesignRegistry.sv`。不要手工修改这个生成文件。
+用户不需要修改根 `registry.json`。运行 Frame 测试时，工具会选择空闲临时 ID，
+并在 `build/designs/three-inverter/frame/` 下生成隔离的 registry。
 
 ## 5. 编写 Frame 集成测试
 
-打开 `designs/1/tests/FrameUserDesign1Tb.sv`，保留模块声明、时钟、三态引脚连接和
+打开 `designs/three-inverter/tests/FrameThreeInverterTb.sv`，保留模块声明、时钟、三态引脚连接和
 `FrameTop dut` 实例，用下面内容替换原来的 `initial begin ... end`：
 
 ```systemverilog
 initial begin
-  // reset 期间通过 user_io[6:0] 选择 design 1。
+  // DESIGN_ID 由构建工具注入；reset 期间通过 user_io[6:0] 选择它。
   test_io_oe[DESIGN_ID_WIDTH-1:0] = '1;
   test_io_out[DESIGN_ID_WIDTH-1:0] = DESIGN_ID;
 
@@ -178,7 +162,7 @@ initial begin
   #1ns;
 
   if (!dut.selection_valid || !dut.design_selected[DESIGN_ID])
-    $fatal(1, "design 1 was not selected through FrameTop");
+    $fatal(1, "three-inverter was not selected through FrameTop");
 
   // 测试平台驱动 user_io[12:10]，对应设计的 io_in[5:3]。
   test_io_oe[DESIGN_ID_WIDTH + 5 : DESIGN_ID_WIDTH + 3] = 3'b111;
@@ -206,7 +190,7 @@ initial begin
     end
   end
 
-  $display("USER DESIGN 1 FRAME TEST PASS");
+  $display("THREE INVERTER FRAME TEST PASS");
   $finish;
 end
 ```
@@ -217,14 +201,14 @@ end
 按顺序运行：
 
 ```sh
-make design-lint DESIGN=designs/1
-make design-frame-test DESIGN=designs/1 TEST=frame
+make user-lint
+make user-frame-test
 ```
 
 成功时会看到：
 
 ```text
-USER DESIGN 1 FRAME TEST PASS
+THREE INVERTER FRAME TEST PASS
 ```
 
 Frame 测试会对双向 IO 产生的框架级 `UNOPTFLAT` 误报做兼容处理，但独立 lint
@@ -233,14 +217,16 @@ Frame 测试会对双向 IO 产生的框架级 `UNOPTFLAT` 误报做兼容处理
 ## 6. 生成并查看波形
 
 ```sh
-make frame-test DESIGN=designs/1 TEST=frame TRACE=1
-gtkwave build/waves/1/frame.fst
+make user-frame-test TRACE=1
+gtkwave build/waves/three-inverter/frame.fst
 ```
+
+先读取 `build/designs/three-inverter/frame/selected-id.txt`。假设其中为 `1`，展开：
 
 在 GTKWave 的 SST 窗口中展开：
 
 ```text
-FrameUserDesign1Tb
+FrameThreeInverterTb
 └── dut
     └── u_design_registry
         └── u_design_1
@@ -272,20 +258,21 @@ io_in[5:0] = 101_010 = 6'h2a
 ## 7. 提交前检查
 
 ```sh
-make regression-fast
+make user-check
+make docs-check
 git diff --check
 git status --short
 ```
 
-需要提交的内容包括 `designs/1/`、`designs/registry.json` 和重新生成的
-`rtl/generated/FrameDesignRegistry.sv`。不要提交 `build/` 或 FST 波形。
+普通用户只提交 `designs/three-inverter/`。不要修改正式 registry，也不要提交
+`build/` 或 FST 波形。
 
 ## 常见错误
 
 - 只有 `io_out[0]` 有输出：误写了 `io_oe[0] = 1'b111`；应写
   `io_oe[2:0] = 3'b111`。
-- 输出是 `z`：对应 `io_oe` 没有置 1，或者 design 1 没有成功注册和选中。
+- 输出是 `z`：对应 `io_oe` 没有置 1，或者临时设计没有成功选中。
 - 输出是 `x`：测试平台驱动了设计的输出引脚，造成两个驱动源冲突。
-- Frame 测试提示未注册：检查 `designs/registry.json`，再执行
-  `make registry-generate`。
+- 找不到用户设计：确认 `designs/three-inverter/design.json` 存在；多个未注册设计
+  同时存在时传入 `DESIGN=designs/three-inverter`。
 - 波形中的 `io_in` 包含输出数据：这是双向 IO 的正常输出回读。

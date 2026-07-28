@@ -14,7 +14,8 @@
 | `tests/Frame@MODULE@Tb.sv` | 测试电路接入整个工程后是否正常 | 是，检查外部引脚和 design 选择 |
 | `design.json` | 告诉构建工具源码和测试在哪里 | 通常不需要 |
 
-设计编号是 `@DESIGN_ID@`，顶层模块名是 `@MODULE@`。
+设计名称是 `@PACKAGE_NAME@`，顶层模块名是 `@MODULE@`。用户设计不需要填写
+design ID；Frame 测试会自动使用临时 ID，正式 ID 由维护者合并时分配。
 
 ## 第一步：实现电路
 
@@ -37,30 +38,27 @@
 先修改 `tests/@MODULE@Tb.sv`，测试你的电路功能。然后运行：
 
 ```sh
-make design-lint DESIGN=designs/@DESIGN_ID@
-make design-test DESIGN=designs/@DESIGN_ID@ TEST=io
+make user-lint
+make user-test
 ```
 
 看到测试文件中 `$display` 输出的 `PASS`，并且 make 正常结束，才表示测试通过。
 
-## 第三步：接入 FrameTop
+## 第三步：测试 FrameTop 连接
 
-独立测试通过后，把 `"@DESIGN_ID@/design.json"` 加入根目录的
-`designs/registry.json`，再运行：
+不需要修改 `designs/registry.json`。构建工具会为未注册设计自动选择临时 ID：
 
 ```sh
-make registry-generate
-make registry-check
-make design-frame-test DESIGN=designs/@DESIGN_ID@ TEST=frame
+make user-frame-test
 ```
 
 最后运行提交前检查：
 
 ```sh
-make regression-fast
+make user-check
 ```
 
 推荐使用 Verilator 5.050；工程也验证过 5.032。构建脚本会自动跳过旧版本不认识
 的非关键警告参数。低于 5.032 的版本没有经过验证。
 
-完整中文步骤见 `docs/user-guide.md`。
+完整中文步骤见 `../../docs/user-guide.md`。

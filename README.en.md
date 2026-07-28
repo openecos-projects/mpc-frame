@@ -14,7 +14,7 @@ through the same five signals: `clock`, `reset`, `io_in`, `io_out`, and `io_oe`.
 - `FrameTop.sv`: chip top used for both simulation and synthesis.
 - `designs/registry.json`: list of user designs connected to FrameTop.
 - `designs/template/`: source files used by `make create-design`.
-- `designs/<id>/`: a user's design directory; internal test designs are not
+- `designs/<name>/`: a user's design directory; internal test designs are not
   stored here.
 - `rtl/generated/FrameDesignRegistry.sv`: generated connection code; do not
   edit it manually.
@@ -37,7 +37,7 @@ unregistered design stays in reset with its clock stopped and its pins released.
 ## Start a user design
 
 ```sh
-make create-design DESIGN_ID=3
+make create-design DESIGN_NAME=counter32
 ```
 
 Then follow the [English user guide](docs/user-guide.en.md). The corresponding
@@ -46,13 +46,16 @@ Then follow the [English user guide](docs/user-guide.en.md). The corresponding
 Common checks are:
 
 ```sh
-make design-lint DESIGN=designs/3
-make design-test DESIGN=designs/3 TEST=io
-make registry-generate
-make registry-check
-make design-frame-test DESIGN=designs/3 TEST=frame
-make regression-fast
+make user-lint
+make user-test
+make user-frame-test
+make user-check
 ```
+
+Users do not choose a design ID or edit the root registry. `user-frame-test`
+assigns a temporary slot under `build/`. During merge, a maintainer runs
+`make integrate-design DESIGN=designs/<name> DESIGN_ID=<id>` to assign the
+permanent hardware slot and regenerate the registry.
 
 Verilator 5.050 is recommended, and 5.032 is also tested. Versions older than
 5.032 are not tested. The Makefile probes nonessential warning options and skips

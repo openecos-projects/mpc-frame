@@ -8,13 +8,19 @@
 
 module @FRAME_TOP@;
 
+  // 由构建工具为本次 Frame 测试注入临时或正式 ID，用户无需填写。
+  // The build tool injects a temporary or registered ID for this Frame test.
+`ifndef FRAME_TEST_DESIGN_ID
+  initial $error("FRAME_TEST_DESIGN_ID must be provided by the build tool");
+`endif
+
   // 通常保留 / Usually keep:
   // FrameTop 一共有 73 根 user_io：低 7 位选择 design，其余 66 位连接设计 IO。
   // FrameTop has 73 user_io pins: the low 7 select a design; the other 66
   // connect to the selected design.
   localparam int IO_WIDTH = 73;
   localparam int DESIGN_ID_WIDTH = 7;
-  localparam logic [DESIGN_ID_WIDTH-1:0] DESIGN_ID = 7'd@DESIGN_ID@;
+  localparam logic [DESIGN_ID_WIDTH-1:0] DESIGN_ID = `FRAME_TEST_DESIGN_ID;
   localparam time HALF_PERIOD = 5ns;
 
   // test_io_out 是测试环境准备驱动的值；test_io_oe 对应位为 1 时才真正驱动。

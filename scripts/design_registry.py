@@ -8,7 +8,7 @@ import difflib
 import json
 import re
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
@@ -44,7 +44,7 @@ class TestSpec:
 @dataclass(frozen=True)
 class Design:
     manifest: Path
-    design_id: int
+    design_id: int | None
     name: str
     module: str
     sources: tuple[Path, ...]
@@ -140,10 +140,12 @@ def load_design(manifest: Path) -> Design:
     root = manifest.parent.resolve()
 
     design_id = raw.get("id")
-    if not isinstance(design_id, int) or isinstance(design_id, bool):
-        errors.append("id: expected an integer in the range 1..127")
-        design_id = -1
-    elif not 1 <= design_id <= 127:
+    if design_id is not None and (
+        not isinstance(design_id, int) or isinstance(design_id, bool)
+    ):
+        errors.append("id: expected an integer in the range 1..127 when present")
+        design_id = None
+    elif design_id is not None and not 1 <= design_id <= 127:
         errors.append("id: design 0 is reserved; user design IDs must be in the range 1..127")
 
     name = raw.get("name")
@@ -317,19 +319,57 @@ def load_registry(manifest: Path) -> Registry:
     designs: list[Design] = []
     seen_paths: set[Path] = set()
     for index, value in enumerate(entries):
+        entry_id: int | None = None
+        entry_path: Any = value
+        if isinstance(value, dict):
+            unknown = sorted(set(value) - {"id", "manifest"})
+            for field in unknown:
+                errors.append(f"{manifest}: designs[{index}]: unknown field: {field}")
+            entry_id = value.get("id")
+            entry_path = value.get("manifest")
+            if not isinstance(entry_id, int) or isinstance(entry_id, bool):
+                errors.append(
+                    f"{manifest}: designs[{index}].id: expected an integer in the range 1..127"
+                )
+                entry_id = None
+            elif not 1 <= entry_id <= 127:
+                errors.append(
+                    f"{manifest}: designs[{index}].id: design 0 is reserved; "
+                    "expected 1..127"
+                )
+                entry_id = None
         design_manifest = _resolve_package_path(
-            root, value, f"{manifest}: designs[{index}]", errors
+            root, entry_path, f"{manifest}: designs[{index}].manifest", errors
         )
         if design_manifest is None:
             continue
         if design_manifest in seen_paths:
-            errors.append(f"{manifest}: designs[{index}]: duplicate manifest: {value}")
+            errors.append(
+                f"{manifest}: designs[{index}]: duplicate manifest: {entry_path}"
+            )
             continue
         seen_paths.add(design_manifest)
         try:
-            designs.append(load_design(design_manifest))
+            design = load_design(design_manifest)
         except ManifestError as exc:
             errors.extend(exc.errors)
+            continue
+
+        if entry_id is None:
+            if isinstance(value, str) and design.design_id is not None:
+                entry_id = design.design_id
+            else:
+                errors.append(
+                    f"{manifest}: designs[{index}]: registry entry must assign an id"
+                )
+                continue
+        if design.design_id is not None and design.design_id != entry_id:
+            errors.append(
+                f"{design.manifest}: legacy manifest id {design.design_id} does not "
+                f"match registry id {entry_id}"
+            )
+            continue
+        designs.append(replace(design, design_id=entry_id))
 
     seen_ids: dict[int, Path] = {}
     seen_names: dict[str, Path] = {}
@@ -342,6 +382,7 @@ def load_registry(manifest: Path) -> Registry:
                     f"{design.manifest}: registered designs require at least one "
                     f"{required_kind} test"
                 )
+        assert design.design_id is not None
         if design.design_id in seen_ids:
             errors.append(
                 f"{manifest}: duplicate design id {design.design_id}: "
@@ -372,14 +413,11 @@ def load_registry(manifest: Path) -> Registry:
 def create_design_package(
     template_dir: Path,
     output_dir: Path,
-    design_id: int,
     name: str,
     module: str,
     registry_path: Path | None = None,
 ) -> Path:
     errors: list[str] = []
-    if not 1 <= design_id <= 127:
-        errors.append("id: design 0 is reserved; expected an integer in the range 1..127")
     if not PACKAGE_NAME_RE.fullmatch(name):
         errors.append(
             "name: use lowercase letters, digits, '.', '_' or '-', starting with a letter or digit"
@@ -398,10 +436,6 @@ def create_design_package(
             errors.extend(exc.errors)
         else:
             for design in registry.designs:
-                if design.design_id == design_id:
-                    errors.append(
-                        f"id: design {design_id} is already registered by {design.manifest}"
-                    )
                 if design.name == name:
                     errors.append(
                         f"name: {name!r} is already registered by {design.manifest}"
@@ -424,7 +458,6 @@ def create_design_package(
         raise ManifestError(errors)
 
     replacements = {
-        "@DESIGN_ID@": str(design_id),
         "@PACKAGE_NAME@": name,
         "@MODULE@": module,
         "@UNIT_TOP@": f"{module}Tb",
@@ -453,6 +486,158 @@ def create_design_package(
     manifest = output_dir / "design.json"
     load_design(manifest)
     return manifest
+
+
+def default_module_name(package_name: str) -> str:
+    parts = [part for part in re.split(r"[^A-Za-z0-9]+", package_name) if part]
+    module = "".join(part[0].upper() + part[1:] for part in parts)
+    if not module:
+        return "UserDesign"
+    if module[0].isdigit():
+        module = "UserDesign" + module
+    return module
+
+
+def find_user_design(
+    designs_root: Path, registry_path: Path, selected: Path | None = None
+) -> Path:
+    if selected is not None:
+        candidate = selected.resolve()
+        if candidate.is_dir():
+            candidate /= "design.json"
+        load_design(candidate)
+        return candidate
+
+    designs_root = designs_root.resolve()
+    registry = load_registry(registry_path)
+    registered = {design.manifest for design in registry.designs}
+    candidates = sorted(
+        manifest.resolve()
+        for manifest in designs_root.glob("*/design.json")
+        if manifest.resolve() not in registered
+    )
+    if len(candidates) == 1:
+        load_design(candidates[0])
+        return candidates[0]
+    if not candidates:
+        raise ManifestError(
+            [
+                f"{designs_root}: no unregistered user design found; "
+                "run 'make create-design DESIGN_NAME=<name>'"
+            ]
+        )
+    names = ", ".join(str(path.parent) for path in candidates)
+    raise ManifestError(
+        [
+            f"{designs_root}: multiple unregistered user designs found: {names}; "
+            "select one with DESIGN=<path>"
+        ]
+    )
+
+
+def integrate_design(registry_path: Path, design_path: Path, design_id: int) -> None:
+    if not 1 <= design_id <= 127:
+        raise ManifestError(
+            ["id: design 0 is reserved; expected an integer in the range 1..127"]
+        )
+
+    registry_path = registry_path.resolve()
+    registry = load_registry(registry_path)
+    design = load_design(design_path)
+    root = registry_path.parent
+    try:
+        relative_manifest = design.manifest.relative_to(root)
+    except ValueError:
+        raise ManifestError(
+            [f"{design.manifest}: design package must be inside {root}"]
+        )
+
+    errors: list[str] = []
+    for registered in registry.designs:
+        if registered.manifest == design.manifest:
+            errors.append(
+                f"{design.manifest}: design is already registered as id {registered.design_id}"
+            )
+        if registered.design_id == design_id:
+            errors.append(
+                f"id: design {design_id} is already registered by {registered.manifest}"
+            )
+        if registered.name == design.name and registered.manifest != design.manifest:
+            errors.append(
+                f"name: {design.name!r} is already registered by {registered.manifest}"
+            )
+        if registered.module == design.module and registered.manifest != design.manifest:
+            errors.append(
+                f"module: {design.module} is already registered by {registered.manifest}"
+            )
+    if design.design_id is not None and design.design_id != design_id:
+        errors.append(
+            f"{design.manifest}: legacy manifest id {design.design_id} does not "
+            f"match requested id {design_id}"
+        )
+    if errors:
+        raise ManifestError(errors)
+
+    entries = [
+        {
+            "id": registered.design_id,
+            "manifest": registered.manifest.relative_to(root).as_posix(),
+        }
+        for registered in registry.designs
+    ]
+    entries.append({"id": design_id, "manifest": relative_manifest.as_posix()})
+    entries.sort(key=lambda entry: int(entry["id"]))
+    _write(registry_path, json.dumps({"designs": entries}, indent=2) + "\n")
+
+
+def prepare_frame_registry(registry: Registry, design: Design) -> tuple[Registry, int]:
+    for registered in registry.designs:
+        if registered.manifest == design.manifest:
+            assert registered.design_id is not None
+            return registry, registered.design_id
+
+    errors: list[str] = []
+    for registered in registry.designs:
+        if registered.name == design.name:
+            errors.append(
+                f"name: {design.name!r} is already registered by {registered.manifest}"
+            )
+        if registered.module == design.module:
+            errors.append(
+                f"module: {design.module} is already registered by {registered.manifest}"
+            )
+    if errors:
+        raise ManifestError(errors)
+
+    used_ids = {registered.design_id for registered in registry.designs}
+    temporary_id = next(
+        (candidate for candidate in range(1, 128) if candidate not in used_ids), None
+    )
+    if temporary_id is None:
+        raise ManifestError(["registry has no free design ID for a temporary Frame test"])
+    temporary = replace(design, design_id=temporary_id)
+    designs = tuple(
+        sorted((*registry.designs, temporary), key=lambda item: item.design_id or 0)
+    )
+    return Registry(registry.manifest, designs), temporary_id
+
+
+def write_frame_filelist(registry: Registry, output_dir: Path, root: Path) -> None:
+    registry_rtl = output_dir / "FrameDesignRegistry.sv"
+    registry_filelist = output_dir / "user-designs.f"
+    frame_filelist = output_dir / "frame.f"
+    _write(registry_rtl, render_registry(registry))
+    _write(registry_filelist, render_registry_filelist(registry))
+    lines = [
+        root / "rtl/FrameClockGate.sv",
+        root / "rtl/FrameDesignControl.sv",
+        root / "rtl/DesignIoMux.sv",
+        root / "rtl/ReferenceDesign0.sv",
+    ]
+    content = "\n".join(str(path.resolve()) for path in lines)
+    content += f"\n-f {registry_filelist.resolve()}\n"
+    content += f"{registry_rtl.resolve()}\n{(root / 'FrameTop.sv').resolve()}\n"
+    _write(frame_filelist, content)
 
 
 def _sv_value(value: Any) -> str:
@@ -493,6 +678,8 @@ endmodule
 
 
 def render_registry(registry: Registry) -> str:
+    if any(design.design_id is None for design in registry.designs):
+        raise ManifestError(["registry rendering requires an ID for every design"])
     wrappers = "\n".join(
         render_wrapper(design, f"FrameDesignSlot{design.design_id}").rstrip()
         for design in registry.designs
@@ -593,6 +780,7 @@ def write_design_build(
     kind: str | None,
     test_name: str | None,
     trace_file: Path | None,
+    frame_design_id: int | None = None,
 ) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     lines: list[str] = []
@@ -604,6 +792,10 @@ def write_design_build(
     top = "UserDesignDut"
     if kind is not None:
         test = _select_test(design, kind, test_name)
+        if kind == "frame":
+            if frame_design_id is None:
+                raise ManifestError(["frame build requires a selected design ID"])
+            lines.append(f"+define+FRAME_TEST_DESIGN_ID={frame_design_id}")
         lines.extend(str(path) for path in test.sources)
         top = test.top
         if kind == "frame" and trace_file is not None:
@@ -656,8 +848,7 @@ def _build_parser() -> argparse.ArgumentParser:
     validate_design.add_argument("--design", required=True, type=Path)
 
     create_design = subparsers.add_parser("create-design")
-    create_design.add_argument("--id", required=True, type=int)
-    create_design.add_argument("--name")
+    create_design.add_argument("--name", required=True)
     create_design.add_argument("--module")
     create_design.add_argument("--output", required=True, type=Path)
     create_design.add_argument("--template", required=True, type=Path)
@@ -670,6 +861,16 @@ def _build_parser() -> argparse.ArgumentParser:
     design_build.add_argument("--test")
     design_build.add_argument("--registry", type=Path)
     design_build.add_argument("--trace-file", type=Path)
+
+    find_design = subparsers.add_parser("find-user-design")
+    find_design.add_argument("--designs-root", required=True, type=Path)
+    find_design.add_argument("--registry", required=True, type=Path)
+    find_design.add_argument("--design", type=Path)
+
+    integrate = subparsers.add_parser("integrate-design")
+    integrate.add_argument("--design", required=True, type=Path)
+    integrate.add_argument("--id", required=True, type=int)
+    integrate.add_argument("--registry", required=True, type=Path)
 
     for command in ("validate-registry", "registry-filelist", "generate-registry", "check-registry"):
         subparser = subparsers.add_parser(command)
@@ -687,28 +888,41 @@ def main() -> int:
         if args.command == "validate-design":
             load_design(args.design)
         elif args.command == "create-design":
-            name = args.name or f"user-design-{args.id}"
-            module = args.module or f"UserDesign{args.id}"
+            name = args.name
+            module = args.module or default_module_name(name)
             manifest = create_design_package(
-                args.template, args.output, args.id, name, module, args.registry
+                args.template, args.output, name, module, args.registry
             )
             print(f"created {manifest}")
+        elif args.command == "find-user-design":
+            manifest = find_user_design(
+                args.designs_root, args.registry, args.design
+            )
+            print(manifest.parent)
+        elif args.command == "integrate-design":
+            integrate_design(args.registry, args.design, args.id)
+            print(f"registered {args.design} as design {args.id}")
         elif args.command == "design-build":
             design = load_design(args.design)
+            frame_design_id = None
             if args.kind == "frame":
                 if args.registry is None:
                     raise ManifestError(["frame tests require --registry"])
                 registry = load_registry(args.registry)
-                registered = {entry.manifest for entry in registry.designs}
-                if design.manifest not in registered:
-                    raise ManifestError(
-                        [
-                            f"{design.manifest}: design is not listed in "
-                            f"{registry.manifest}; register it before running a frame test"
-                        ]
-                    )
+                frame_registry, frame_design_id = prepare_frame_registry(registry, design)
+                write_frame_filelist(
+                    frame_registry,
+                    args.output_dir,
+                    Path(__file__).resolve().parents[1],
+                )
+                _write(args.output_dir / "selected-id.txt", f"{frame_design_id}\n")
             write_design_build(
-                design, args.output_dir, args.kind, args.test, args.trace_file
+                design,
+                args.output_dir,
+                args.kind,
+                args.test,
+                args.trace_file,
+                frame_design_id,
             )
         else:
             registry = load_registry(args.registry)

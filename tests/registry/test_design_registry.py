@@ -12,11 +12,18 @@ import design_registry  # noqa: E402
 
 
 class DesignRegistryTest(unittest.TestCase):
-    def make_design(self, root: Path, directory: str, design_id: int, name: str) -> Path:
+    def make_design(
+        self,
+        root: Path,
+        directory: str,
+        name: str,
+        legacy_id: int | None = None,
+        module: str = "Dut",
+    ) -> Path:
         package = root / directory
         (package / "rtl").mkdir(parents=True)
         (package / "rtl" / "Dut.sv").write_text(
-            """module Dut(
+            f"""module {module}(
   input wire clock, input wire reset, input wire [7:0] io_in,
   output wire [7:0] io_out, output wire [7:0] io_oe
 );
@@ -32,9 +39,8 @@ endmodule
             encoding="utf-8",
         )
         manifest = {
-            "id": design_id,
             "name": name,
-            "module": "Dut",
+            "module": module,
             "sources": ["rtl/Dut.sv"],
             "tests": [
                 {
@@ -51,6 +57,8 @@ endmodule
                 },
             ],
         }
+        if legacy_id is not None:
+            manifest["id"] = legacy_id
         path = package / "design.json"
         path.write_text(json.dumps(manifest), encoding="utf-8")
         return path
@@ -58,13 +66,17 @@ endmodule
     def test_default_port_mapping_and_deterministic_rendering(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
-            design_path = self.make_design(root, "1", 1, "one")
+            design_path = self.make_design(root, "one", "one")
             design = design_registry.load_design(design_path)
             self.assertEqual(design.ports["clock"], "clock")
+            self.assertIsNone(design.design_id)
 
             registry_path = root / "registry.json"
             registry_path.write_text(
-                json.dumps({"designs": ["1/design.json"]}), encoding="utf-8"
+                json.dumps(
+                    {"designs": [{"id": 1, "manifest": "one/design.json"}]}
+                ),
+                encoding="utf-8",
             )
             registry = design_registry.load_registry(registry_path)
             first = design_registry.render_registry(registry)
@@ -96,12 +108,17 @@ endmodule
     def test_registry_rejects_duplicate_ids(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
-            self.make_design(root, "first", 4, "first")
-            self.make_design(root, "second", 4, "second")
+            self.make_design(root, "first", "first", module="FirstDut")
+            self.make_design(root, "second", "second", module="SecondDut")
             registry_path = root / "registry.json"
             registry_path.write_text(
                 json.dumps(
-                    {"designs": ["first/design.json", "second/design.json"]}
+                    {
+                        "designs": [
+                            {"id": 4, "manifest": "first/design.json"},
+                            {"id": 4, "manifest": "second/design.json"},
+                        ]
+                    }
                 ),
                 encoding="utf-8",
             )
@@ -109,17 +126,37 @@ endmodule
                 design_registry.load_registry(registry_path)
             self.assertIn("duplicate design id 4", "\n".join(context.exception.errors))
 
+    def test_legacy_manifest_id_and_string_registry_remain_supported(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            self.make_design(root, "legacy", "legacy", legacy_id=9)
+            registry_path = root / "registry.json"
+            registry_path.write_text(
+                json.dumps({"designs": ["legacy/design.json"]}), encoding="utf-8"
+            )
+
+            registry = design_registry.load_registry(registry_path)
+
+            self.assertEqual(registry.designs[0].design_id, 9)
+
     def test_registry_rejects_paths_outside_designs_root(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             outside = root / "outside"
             registry_root = root / "designs"
             registry_root.mkdir()
-            self.make_design(root, "outside", 5, "outside")
+            self.make_design(root, "outside", "outside")
             self.assertTrue(outside.exists())
             registry_path = registry_root / "registry.json"
             registry_path.write_text(
-                json.dumps({"designs": ["../outside/design.json"]}), encoding="utf-8"
+                json.dumps(
+                    {
+                        "designs": [
+                            {"id": 5, "manifest": "../outside/design.json"}
+                        ]
+                    }
+                ),
+                encoding="utf-8",
             )
             with self.assertRaises(design_registry.ManifestError) as context:
                 design_registry.load_registry(registry_path)
@@ -128,13 +165,16 @@ endmodule
     def test_registered_design_requires_unit_and_frame_tests(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
-            design_path = self.make_design(root, "1", 1, "one")
+            design_path = self.make_design(root, "one", "one")
             manifest = json.loads(design_path.read_text(encoding="utf-8"))
             manifest["tests"] = [manifest["tests"][0]]
             design_path.write_text(json.dumps(manifest), encoding="utf-8")
             registry_path = root / "registry.json"
             registry_path.write_text(
-                json.dumps({"designs": ["1/design.json"]}), encoding="utf-8"
+                json.dumps(
+                    {"designs": [{"id": 1, "manifest": "one/design.json"}]}
+                ),
+                encoding="utf-8",
             )
             with self.assertRaises(design_registry.ManifestError) as context:
                 design_registry.load_registry(registry_path)
@@ -148,12 +188,11 @@ endmodule
             manifest = design_registry.create_design_package(
                 REPOSITORY_ROOT / "designs" / "template",
                 output,
-                17,
                 "my-design",
                 "MyDesign",
             )
             design = design_registry.load_design(manifest)
-            self.assertEqual(design.design_id, 17)
+            self.assertIsNone(design.design_id)
             self.assertEqual(design.module, "MyDesign")
             self.assertEqual({test.kind for test in design.tests}, {"unit", "frame"})
             self.assertTrue((output / "rtl" / "MyDesign.sv").is_file())
@@ -163,13 +202,20 @@ endmodule
                 if generated.is_file():
                     self.assertNotIn("@MODULE@", generated.read_text(encoding="utf-8"))
 
-    def test_create_refuses_existing_output_and_registered_id(self):
+    def test_create_refuses_existing_output_and_registered_name(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
-            self.make_design(root, "registered", 17, "registered")
+            self.make_design(root, "registered", "new-design", module="NewDesign")
             registry = root / "registry.json"
             registry.write_text(
-                json.dumps({"designs": ["registered/design.json"]}), encoding="utf-8"
+                json.dumps(
+                    {
+                        "designs": [
+                            {"id": 17, "manifest": "registered/design.json"}
+                        ]
+                    }
+                ),
+                encoding="utf-8",
             )
             output = root / "existing"
             output.mkdir()
@@ -177,14 +223,85 @@ endmodule
                 design_registry.create_design_package(
                     REPOSITORY_ROOT / "designs" / "template",
                     output,
-                    17,
                     "new-design",
                     "NewDesign",
                     registry,
                 )
             errors = "\n".join(context.exception.errors)
             self.assertIn("refusing to overwrite", errors)
-            self.assertIn("design 17 is already registered", errors)
+            self.assertIn("name: 'new-design' is already registered", errors)
+
+    def test_finds_the_single_unregistered_design(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            designs = root / "designs"
+            designs.mkdir()
+            registered = self.make_design(
+                designs, "registered", "registered", module="RegisteredDut"
+            )
+            candidate = self.make_design(
+                designs, "candidate", "candidate", module="CandidateDut"
+            )
+            registry_path = designs / "registry.json"
+            registry_path.write_text(
+                json.dumps(
+                    {
+                        "designs": [
+                            {"id": 7, "manifest": "registered/design.json"}
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+            self.assertTrue(registered.is_file())
+            selected = design_registry.find_user_design(designs, registry_path)
+            self.assertEqual(selected, candidate.resolve())
+
+    def test_frame_registry_assigns_first_free_temporary_id(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            self.make_design(root, "registered", "registered", module="RegisteredDut")
+            candidate_path = self.make_design(
+                root, "candidate", "candidate", module="CandidateDut"
+            )
+            registry_path = root / "registry.json"
+            registry_path.write_text(
+                json.dumps(
+                    {
+                        "designs": [
+                            {"id": 1, "manifest": "registered/design.json"}
+                        ]
+                    }
+                ),
+                encoding="utf-8",
+            )
+            registry = design_registry.load_registry(registry_path)
+            candidate = design_registry.load_design(candidate_path)
+            temporary, selected_id = design_registry.prepare_frame_registry(
+                registry, candidate
+            )
+            self.assertEqual(selected_id, 2)
+            self.assertEqual([design.design_id for design in temporary.designs], [1, 2])
+
+    def test_integrate_design_writes_id_to_registry_only(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            designs = Path(temp_dir) / "designs"
+            designs.mkdir()
+            candidate = self.make_design(
+                designs, "counter32", "counter32", module="Counter32"
+            )
+            registry_path = designs / "registry.json"
+            registry_path.write_text('{"designs": []}\n', encoding="utf-8")
+
+            design_registry.integrate_design(registry_path, candidate, 12)
+
+            manifest = json.loads(candidate.read_text(encoding="utf-8"))
+            registry = json.loads(registry_path.read_text(encoding="utf-8"))
+            self.assertNotIn("id", manifest)
+            self.assertEqual(
+                registry["designs"],
+                [{"id": 12, "manifest": "counter32/design.json"}],
+            )
 
 
 if __name__ == "__main__":

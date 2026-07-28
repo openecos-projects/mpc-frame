@@ -41,23 +41,27 @@ DESIGN_TEMPLATE := $(CURDIR)/designs/template
 DESIGN_ID ?=
 DESIGN_NAME ?=
 DESIGN_MODULE ?=
-DESIGN_OUTPUT ?= $(CURDIR)/designs/$(DESIGN_ID)
-CREATE_NAME_ARG := $(if $(DESIGN_NAME),--name $(DESIGN_NAME),)
+DESIGN_OUTPUT ?= $(CURDIR)/designs/$(DESIGN_NAME)
 CREATE_MODULE_ARG := $(if $(DESIGN_MODULE),--module $(DESIGN_MODULE),)
+USER_DESIGN_ARG := $(if $(DESIGN),--design $(DESIGN),)
 
-.PHONY: help require-design verilator-version docs-check lint lint-user registry-filelist registry-check registry-generate \
-	create-design design-lint design-test design-frame-test manifest-test stage5-test stage9-test \
+.PHONY: help require-design require-design-id verilator-version docs-check lint lint-user registry-filelist registry-check registry-generate \
+	create-design integrate-design user-lint user-test user-frame-test user-check \
+	design-lint design-test design-frame-test manifest-test stage5-test stage9-test \
 	frame-test regression-fast regression control-test \
 	io-contention-test reference-verilate reference-sim reference-test clean
 
 help:
 	@printf '%s\n' 'mpc-frame build entry'
 	@printf '%s\n' '  make lint       Lint FrameTop and every registered design'
-	@printf '%s\n' '  make design-lint DESIGN=designs/3'
-	@printf '%s\n' '  make design-test DESIGN=designs/3 [TEST=io]'
-	@printf '%s\n' '  make design-frame-test DESIGN=designs/3 [TEST=frame]'
-	@printf '%s\n' '  make create-design DESIGN_ID=3 [DESIGN_NAME=name] [DESIGN_MODULE=Top]'
-	@printf '%s\n' '  make frame-test DESIGN=<0|designs/id> [TEST=name] [TRACE=1]'
+	@printf '%s\n' '  make create-design DESIGN_NAME=counter32 [DESIGN_MODULE=Counter32]'
+	@printf '%s\n' '  make user-lint         Lint the single unregistered user design'
+	@printf '%s\n' '  make user-test         Run its standalone unit test'
+	@printf '%s\n' '  make user-frame-test   Test it through FrameTop with a temporary ID'
+	@printf '%s\n' '  make user-check        Run all three user checks'
+	@printf '%s\n' '  make integrate-design DESIGN=designs/counter32 DESIGN_ID=12'
+	@printf '%s\n' '  make design-lint DESIGN=designs/counter32'
+	@printf '%s\n' '  make frame-test DESIGN=<0|design-path> [TEST=name] [TRACE=1]'
 	@printf '%s\n' '  make regression-fast [TRACE=1]  Run all registered design tests'
 	@printf '%s\n' '  make regression [TRACE=1]       Add the complete reference tests'
 	@printf '%s\n' '  make registry-check     Validate manifests and generated registry RTL'
@@ -73,7 +77,11 @@ help:
 
 require-design:
 	@test -n "$(DESIGN)" || (printf '%s\n' \
-		'ERROR: DESIGN is required, for example DESIGN=designs/3'; exit 2)
+		'ERROR: DESIGN is required, for example DESIGN=designs/counter32'; exit 2)
+
+require-design-id:
+	@test -n "$(DESIGN_ID)" || (printf '%s\n' \
+		'ERROR: DESIGN_ID is required for maintainer integration (1..127)'; exit 2)
 
 verilator-version:
 	@$(VERILATOR) --version
@@ -96,10 +104,41 @@ registry-generate:
 		--filelist $(REGISTRY_FILELIST)
 
 create-design:
-	@test -n "$(DESIGN_ID)" || (printf '%s\n' 'ERROR: DESIGN_ID is required (1..127)'; exit 2)
-	@$(PYTHON) $(REGISTRY_TOOL) create-design --id $(DESIGN_ID) \
+	@test -n "$(DESIGN_NAME)" || (printf '%s\n' \
+		'ERROR: DESIGN_NAME is required, for example DESIGN_NAME=counter32'; exit 2)
+	@$(PYTHON) $(REGISTRY_TOOL) create-design --name $(DESIGN_NAME) \
 		--template $(DESIGN_TEMPLATE) --output $(DESIGN_OUTPUT) \
-		--registry $(REGISTRY_MANIFEST) $(CREATE_NAME_ARG) $(CREATE_MODULE_ARG)
+		--registry $(REGISTRY_MANIFEST) $(CREATE_MODULE_ARG)
+
+integrate-design: require-design require-design-id
+	@$(PYTHON) $(REGISTRY_TOOL) integrate-design --design $(DESIGN_MANIFEST) \
+		--id $(DESIGN_ID) --registry $(REGISTRY_MANIFEST)
+	@$(MAKE) registry-generate
+	@$(MAKE) registry-check
+	@$(MAKE) design-frame-test DESIGN=$(DESIGN) $(if $(TEST),TEST=$(TEST),)
+
+user-lint:
+	@design=$$($(PYTHON) $(REGISTRY_TOOL) find-user-design \
+		--designs-root $(CURDIR)/designs --registry $(REGISTRY_MANIFEST) \
+		$(USER_DESIGN_ARG)) || exit $$?; \
+	$(MAKE) design-lint DESIGN="$$design"
+
+user-test:
+	@design=$$($(PYTHON) $(REGISTRY_TOOL) find-user-design \
+		--designs-root $(CURDIR)/designs --registry $(REGISTRY_MANIFEST) \
+		$(USER_DESIGN_ARG)) || exit $$?; \
+	$(MAKE) design-test DESIGN="$$design" $(if $(TEST),TEST=$(TEST),)
+
+user-frame-test:
+	@design=$$($(PYTHON) $(REGISTRY_TOOL) find-user-design \
+		--designs-root $(CURDIR)/designs --registry $(REGISTRY_MANIFEST) \
+		$(USER_DESIGN_ARG)) || exit $$?; \
+	$(MAKE) design-frame-test DESIGN="$$design" $(if $(TEST),TEST=$(TEST),) TRACE=$(TRACE)
+
+user-check:
+	@$(MAKE) user-lint DESIGN="$(DESIGN)"
+	@$(MAKE) user-test DESIGN="$(DESIGN)"
+	@$(MAKE) user-frame-test DESIGN="$(DESIGN)" TRACE=$(TRACE)
 
 lint: registry-filelist registry-check
 	@$(VERILATOR) --lint-only --timing --Wall \
@@ -114,7 +153,7 @@ design-lint: require-design
 		-Wno-UNUSEDSIGNAL -Wno-UNUSEDPARAM -Wno-DECLFILENAME \
 		--top-module "$$top" -f $(DESIGN_LINT_DIR)/sources.f
 
-lint-user: design-lint
+lint-user: user-lint
 
 design-test: require-design
 	@$(PYTHON) $(REGISTRY_TOOL) design-build --design $(DESIGN_MANIFEST) \
@@ -129,7 +168,7 @@ design-test: require-design
 
 # The resolved user_io path appears as a flat combinational cycle to Verilator
 # 5.032. Standalone design-lint keeps UNOPTFLAT enabled for real user RTL loops.
-design-frame-test: require-design registry-filelist registry-check
+design-frame-test: require-design
 	@mkdir -p $(dir $(FRAME_WAVE_FILE))
 	@$(PYTHON) $(REGISTRY_TOOL) design-build --design $(DESIGN_MANIFEST) \
 		--output-dir $(DESIGN_FRAME_DIR) --kind frame \
@@ -139,7 +178,7 @@ design-frame-test: require-design registry-filelist registry-check
 		-Wno-UNUSEDSIGNAL -Wno-UNUSEDPARAM -Wno-DECLFILENAME \
 		-Wno-BLKSEQ -Wno-UNOPTFLAT $(VERILATOR_PROCASSINIT_FLAG) \
 		--Mdir $(DESIGN_FRAME_DIR)/obj --top-module "$$top" \
-		-f $(RTL_FILELIST) -f $(DESIGN_FRAME_DIR)/sources.f && \
+		-f $(DESIGN_FRAME_DIR)/frame.f -f $(DESIGN_FRAME_DIR)/sources.f && \
 	$(DESIGN_FRAME_DIR)/obj/V$$top
 
 manifest-test:

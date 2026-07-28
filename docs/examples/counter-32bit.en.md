@@ -18,40 +18,40 @@ The internal and external pin mapping is:
 | 32-bit count | `io_out[31:0]` | `user_io[38:7]` |
 | Design ID | Not visible to the user design | `user_io[6:0]` |
 
-This design has no external inputs and drives all 32 count pins. The example
-uses design ID 2. If ID 2 is already used, choose another unregistered ID and
-update the commands, file names, and design ID accordingly.
+This design has no external inputs and drives all 32 count pins. Its package
+name is `counter32`. Contributors do not choose a design ID; the Frame test
+assigns a temporary ID.
 
 ## 1. Create the design
 
 Run from the repository root:
 
 ```sh
-make create-design DESIGN_ID=2
+make create-design DESIGN_NAME=counter32
 ```
 
 The command creates:
 
 ```text
-designs/2/
+designs/counter32/
 ├── README.md
 ├── README.en.md
 ├── design.json
-├── rtl/UserDesign2.sv
+├── rtl/Counter32.sv
 └── tests/
-    ├── UserDesign2Tb.sv
-    └── FrameUserDesign2Tb.sv
+    ├── Counter32Tb.sv
+    └── FrameCounter32Tb.sv
 ```
 
-`UserDesign2Tb.sv` tests the counter directly. `FrameUserDesign2Tb.sv` checks
+`Counter32Tb.sv` tests the counter directly. `FrameCounter32Tb.sv` checks
 that the count reaches the external pins through FrameTop.
 
 ## 2. Implement the 32-bit counter
 
-Replace `designs/2/rtl/UserDesign2.sv` with:
+Replace `designs/counter32/rtl/Counter32.sv` with:
 
 ```systemverilog
-module UserDesign2 #(
+module Counter32 #(
   parameter int IO_WIDTH = 66
 ) (
   input  logic                clock,
@@ -91,7 +91,7 @@ all remaining IO pins stay released.
 
 ## 3. Write the unit test
 
-Open `designs/2/tests/UserDesign2Tb.sv`. Keep the module declaration, clock,
+Open `designs/counter32/tests/Counter32Tb.sv`. Keep the module declaration, clock,
 signals, and `UserDesignDut` instance. Replace the original
 `initial begin ... end` block with:
 
@@ -139,7 +139,7 @@ initial begin
   if (io_out[31:0] !== 32'b0)
     $fatal(1, "counter did not reset a second time");
 
-  $display("USER DESIGN 2 COUNTER UNIT TEST PASS");
+  $display("COUNTER32 COUNTER UNIT TEST PASS");
   $finish;
 end
 ```
@@ -147,44 +147,27 @@ end
 Run standalone lint before the test:
 
 ```sh
-make design-lint DESIGN=designs/2
-make design-test DESIGN=designs/2 TEST=io
+make user-lint
+make user-test
 ```
 
 A successful run prints:
 
 ```text
-USER DESIGN 2 COUNTER UNIT TEST PASS
+COUNTER32 COUNTER UNIT TEST PASS
 ```
 
 The test waits `#1ns` after each rising edge so nonblocking assignments can
 finish updating before the result is read.
 
-## 4. Register with FrameTop
+## 4. Connect temporarily to FrameTop
 
-After the standalone test passes, add design 2 to the root
-`designs/registry.json`:
-
-```json
-{
-  "designs": [
-    "2/design.json"
-  ]
-}
-```
-
-Append the entry without deleting existing official designs. Then run:
-
-```sh
-make registry-generate
-make registry-check
-```
-
-Do not manually edit the generated `rtl/generated/FrameDesignRegistry.sv`.
+Do not edit the permanent registry. `user-frame-test` selects a free temporary
+ID for `counter32` and generates an isolated registry under `build/`.
 
 ## 5. Write the Frame integration test
 
-Open `designs/2/tests/FrameUserDesign2Tb.sv`. Keep the module declaration,
+Open `designs/counter32/tests/FrameCounter32Tb.sv`. Keep the module declaration,
 clock, tri-state connections, and `FrameTop dut` instance. Replace the original
 `initial begin ... end` block with:
 
@@ -193,7 +176,7 @@ initial begin
   logic [31:0] count_snapshot;
   logic [31:0] expected;
 
-  // Select design 2 through user_io[6:0] while reset is asserted.
+  // The build injects DESIGN_ID; select it while reset is asserted.
   test_io_oe[DESIGN_ID_WIDTH-1:0] = '1;
   test_io_out[DESIGN_ID_WIDTH-1:0] = DESIGN_ID;
 
@@ -204,7 +187,7 @@ initial begin
   #1ns;
 
   if (!dut.selection_valid || !dut.design_selected[DESIGN_ID])
-    $fatal(1, "design 2 was not selected through FrameTop");
+    $fatal(1, "counter32 was not selected through FrameTop");
 
   // user_io[38:7] maps to io_out[31:0]. The test must release these pins.
   test_io_oe[
@@ -238,7 +221,7 @@ initial begin
     end
   end
 
-  $display("USER DESIGN 2 COUNTER FRAME TEST PASS");
+  $display("COUNTER32 COUNTER FRAME TEST PASS");
   $finish;
 end
 ```
@@ -250,37 +233,40 @@ or IO contention.
 Run:
 
 ```sh
-make design-lint DESIGN=designs/2
-make design-frame-test DESIGN=designs/2 TEST=frame
+make user-lint
+make user-frame-test
 ```
 
 A successful run prints:
 
 ```text
-USER DESIGN 2 COUNTER FRAME TEST PASS
+COUNTER32 COUNTER FRAME TEST PASS
 ```
 
 ## 6. Generate and inspect a waveform
 
 ```sh
-make frame-test DESIGN=designs/2 TEST=frame TRACE=1
-gtkwave build/waves/2/frame.fst
+make user-frame-test TRACE=1
+gtkwave build/waves/counter32/frame.fst
 ```
+
+Read `build/designs/counter32/frame/selected-id.txt` first. If it contains `1`,
+expand:
 
 Expand this hierarchy in GTKWave's SST pane:
 
 ```text
-FrameUserDesign2Tb
+FrameCounter32Tb
 └── dut
     └── u_design_registry
-        └── u_design_2
+        └── u_design_1
             └── u_design
 ```
 
 Inspect:
 
 - `clock` and `reset`;
-- `selection_valid` and `design_selected[2]` in FrameTop;
+- `selection_valid` and the `design_selected` bit for the temporary ID;
 - `counter`, `io_out[31:0]`, and `io_oe[31:0]` in the user design;
 - `user_io[38:7]` in the testbench.
 
@@ -300,14 +286,14 @@ the count.
 ## 7. Checks before submission
 
 ```sh
-make regression-fast
+make user-check
 make docs-check
 git diff --check
 git status --short
 ```
 
-Commit `designs/2/`, `designs/registry.json`, and the regenerated registry RTL.
-Do not commit `build/` or FST waveforms.
+Contributors commit only `designs/counter32/`. Do not edit the permanent
+registry or commit `build/` and FST waveforms.
 
 ## Common errors
 

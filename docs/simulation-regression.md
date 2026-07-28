@@ -6,10 +6,10 @@
 
 ## 单项 FrameTop 测试
 
-运行注册用户设计：
+运行当前未注册用户设计：
 
 ```sh
-make frame-test DESIGN=designs/<id> TEST=frame
+make user-frame-test
 ```
 
 运行 reference 测试：
@@ -47,14 +47,14 @@ make regression
 
 ```text
 build/logs/root/
-build/logs/designs/<id>/
+build/logs/designs/<name>/
 build/logs/reference/
 ```
 
 默认不生成波形。传入 `TRACE=1` 后生成 FST：
 
 ```sh
-make frame-test DESIGN=designs/<id> TEST=frame TRACE=1
+make user-frame-test TRACE=1
 make frame-test DESIGN=0 TEST=boot TRACE=1
 make regression-fast TRACE=1
 ```

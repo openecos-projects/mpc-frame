@@ -23,7 +23,7 @@
 - `rtl/ReferenceDesign0.sv`：参考设计 adapter 边界。
 - `designs/registry.json`：参与 FrameTop 集成的用户设计清单。
 - `designs/template/`：通过 `make create-design` 使用的用户 package 模板。
-- `designs/<id>/`：用户通过 `make create-design` 创建的个人设计目录；仓库不
+- `designs/<name>/`：用户通过 `make create-design` 创建的个人设计目录；仓库不
   预放内部测试设计。
 - `scripts/design_registry.py`：manifest 校验与 wrapper/registry 生成器。
 - `rtl/generated/FrameDesignRegistry.sv`：已提交的确定性生成结果。
@@ -43,18 +43,18 @@
 创建一个新的用户设计 package：
 
 ```sh
-make create-design DESIGN_ID=3
+make create-design DESIGN_NAME=counter32
 ```
 
 完整流程见 [用户设计接入指南](docs/user-guide.md)。已有设计的检查入口如下：
 
 ```sh
+make user-lint
+make user-test
+make user-frame-test
+make user-check
 make lint
 make control-test
-make design-lint DESIGN=designs/3
-make design-test DESIGN=designs/3
-make design-frame-test DESIGN=designs/3
-make frame-test DESIGN=designs/3 TEST=frame
 make frame-test DESIGN=0 TEST=boot
 make registry-check
 make stage9-test
@@ -66,7 +66,11 @@ make regression
 Makefile 会先检测非关键警告参数是否受支持，不会因为旧版本不认识
 `-Wno-PROCASSINIT` 而中止。
 
-用户包的独立 lint 和测试不要求写入根 registry。需要集成到 `FrameTop` 时，将其 `design.json` 路径加入 `designs/registry.json`，执行 `make registry-generate`，并提交更新后的生成 RTL。完整格式和流程见 [用户设计注册](docs/user-design-registration.md)。
+用户不需要选择 design ID 或修改根 registry。`user-frame-test` 会在 `build/` 中
+自动分配临时槽位。维护者合并时使用
+`make integrate-design DESIGN=designs/<name> DESIGN_ID=<id>` 分配最终 ID、更新
+registry 并重新验证。完整格式和流程见
+[用户设计注册](docs/user-design-registration.md)。
 
 `make regression-fast` 运行根检查及所有已注册用户设计的 lint、unit 和 FrameTop 测试；`make regression` 在此基础上增加 reference Flash 启动、UART、GPIO 和 PSRAM 回归。传入 `TRACE=1` 后，FrameTop 测试的 FST 波形写入 `build/waves/`。完整回归契约见 [仿真与回归](docs/simulation-regression.md)。
 

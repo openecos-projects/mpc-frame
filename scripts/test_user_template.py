@@ -18,12 +18,11 @@ def run(command: list[str], root: Path) -> None:
 def main() -> int:
     root = Path(__file__).resolve().parents[1]
     stage_root = root / "build" / "stage9"
-    package = stage_root / "designs" / "127"
+    package = stage_root / "designs" / "stage9-smoke"
     registry = stage_root / "designs" / "registry.json"
     registry_rtl = stage_root / "FrameDesignRegistry.sv"
     registry_filelist = stage_root / "user-designs.f"
-    frame_filelist = stage_root / "frame.f"
-    design_build = root / "build" / "designs" / "127"
+    design_build = root / "build" / "designs" / "stage9-smoke"
 
     shutil.rmtree(stage_root, ignore_errors=True)
     shutil.rmtree(design_build, ignore_errors=True)
@@ -32,8 +31,6 @@ def main() -> int:
             sys.executable,
             "scripts/design_registry.py",
             "create-design",
-            "--id",
-            "127",
             "--name",
             "stage9-smoke",
             "--module",
@@ -47,54 +44,29 @@ def main() -> int:
     )
 
     registry.parent.mkdir(parents=True, exist_ok=True)
-    registry.write_text(json.dumps({"designs": ["127/design.json"]}), encoding="utf-8")
-    run(
-        [
-            sys.executable,
-            "scripts/design_registry.py",
-            "generate-registry",
-            "--registry",
-            str(registry),
-            "--output",
-            str(registry_rtl),
-            "--filelist",
-            str(registry_filelist),
-        ],
-        root,
-    )
+    registry.write_text(json.dumps({"designs": []}), encoding="utf-8")
 
-    frame_filelist.write_text(
-        "\n".join(
-            [
-                str(root / "rtl/FrameClockGate.sv"),
-                str(root / "rtl/FrameDesignControl.sv"),
-                str(root / "rtl/DesignIoMux.sv"),
-                str(root / "rtl/ReferenceDesign0.sv"),
-                f"-f {registry_filelist}",
-                str(registry_rtl),
-                str(root / "FrameTop.sv"),
-            ]
-        )
-        + "\n",
-        encoding="utf-8",
-    )
-
-    common = [f"DESIGN={package}"]
+    common = [f"DESIGN={package}", f"REGISTRY_MANIFEST={registry}"]
     run(["make", "design-lint", *common], root)
     run(["make", "design-test", "TEST=io", *common], root)
+    run(["make", "design-frame-test", "TEST=frame", *common], root)
+
     run(
         [
             "make",
-            "design-frame-test",
-            "TEST=frame",
-            *common,
+            "integrate-design",
+            f"DESIGN={package}",
+            "DESIGN_ID=127",
             f"REGISTRY_MANIFEST={registry}",
             f"REGISTRY_RTL={registry_rtl}",
             f"REGISTRY_FILELIST={registry_filelist}",
-            f"RTL_FILELIST={frame_filelist}",
         ],
         root,
     )
+
+    registered = json.loads(registry.read_text(encoding="utf-8"))["designs"]
+    if registered != [{"id": 127, "manifest": "stage9-smoke/design.json"}]:
+        raise RuntimeError(f"unexpected integrated registry: {registered}")
     print("STAGE 9 USER TEMPLATE TEST PASS")
     return 0
 

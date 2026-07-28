@@ -8,10 +8,10 @@ Flash, PSRAM, UART, and GPIO models.
 
 ## Individual FrameTop tests
 
-Run a registered user design:
+Run the current unregistered user design:
 
 ```sh
-make frame-test DESIGN=designs/<id> TEST=frame
+make user-frame-test
 ```
 
 Run reference tests:
@@ -51,14 +51,14 @@ Logs are written under:
 
 ```text
 build/logs/root/
-build/logs/designs/<id>/
+build/logs/designs/<name>/
 build/logs/reference/
 ```
 
 FST tracing is disabled by default. Enable it with `TRACE=1`:
 
 ```sh
-make frame-test DESIGN=designs/<id> TEST=frame TRACE=1
+make user-frame-test TRACE=1
 make frame-test DESIGN=0 TEST=boot TRACE=1
 make regression-fast TRACE=1
 ```

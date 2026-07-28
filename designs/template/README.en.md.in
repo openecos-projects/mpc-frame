@@ -14,7 +14,9 @@ two test files. You do not need to change `FrameTop.sv` or the root RTL files.
 | `tests/Frame@MODULE@Tb.sv` | Tests your circuit through the full frame | Yes; check pins and design selection |
 | `design.json` | Tells the build tools where sources and tests are | Usually no |
 
-The design ID is `@DESIGN_ID@`, and the top module is `@MODULE@`.
+The design name is `@PACKAGE_NAME@`, and the top module is `@MODULE@`. Users do
+not assign a design ID. Frame tests use an automatic temporary ID, and a
+maintainer assigns the permanent ID during integration.
 
 ## Step 1: Implement the circuit
 
@@ -38,31 +40,29 @@ you should edit for your design.
 First update `tests/@MODULE@Tb.sv`, then run:
 
 ```sh
-make design-lint DESIGN=designs/@DESIGN_ID@
-make design-test DESIGN=designs/@DESIGN_ID@ TEST=io
+make user-lint
+make user-test
 ```
 
 The test passes only when its `$display` prints `PASS` and make exits normally.
 
-## Step 3: Connect the design to FrameTop
+## Step 3: Test the FrameTop connection
 
-After the standalone test passes, add `"@DESIGN_ID@/design.json"` to the root
-`designs/registry.json`, then run:
+Do not edit `designs/registry.json`. The build tool automatically assigns a
+temporary ID to an unregistered design:
 
 ```sh
-make registry-generate
-make registry-check
-make design-frame-test DESIGN=designs/@DESIGN_ID@ TEST=frame
+make user-frame-test
 ```
 
 Before submitting, run:
 
 ```sh
-make regression-fast
+make user-check
 ```
 
 Verilator 5.050 is recommended, and 5.032 is also tested. The build scripts
 skip nonessential warning flags that an older version does not recognize.
 Versions older than 5.032 are not tested.
 
-See `docs/user-guide.en.md` for the complete English workflow.
+See `../../docs/user-guide.en.md` for the complete English workflow.

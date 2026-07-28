@@ -20,39 +20,39 @@ The internal and external pin mapping is:
 | Three outputs | `io_out[2:0]` | `user_io[9:7]` |
 | Design ID | Not visible to the user design | `user_io[6:0]` |
 
-This example uses design ID 1. If ID 1 is already used, choose another
-unregistered ID and update the commands, file names, and design ID accordingly.
+The package name is `three-inverter`. Contributors do not choose a design ID;
+the Frame test assigns a temporary ID and a maintainer assigns the final ID.
 
-## 1. Create design 1
+## 1. Create the design
 
 Run from the repository root:
 
 ```sh
-make create-design DESIGN_ID=1
+make create-design DESIGN_NAME=three-inverter
 ```
 
 The command creates:
 
 ```text
-designs/1/
+designs/three-inverter/
 ├── README.md
 ├── README.en.md
 ├── design.json
-├── rtl/UserDesign1.sv
+├── rtl/ThreeInverter.sv
 └── tests/
-    ├── UserDesign1Tb.sv
-    └── FrameUserDesign1Tb.sv
+    ├── ThreeInverterTb.sv
+    └── FrameThreeInverterTb.sv
 ```
 
-`UserDesign1Tb.sv` tests the inverters directly. `FrameUserDesign1Tb.sv` tests
+`ThreeInverterTb.sv` tests the inverters directly. `FrameThreeInverterTb.sv` tests
 the complete path through `user_io` and FrameTop.
 
 ## 2. Implement the inverters
 
-Replace `designs/1/rtl/UserDesign1.sv` with:
+Replace `designs/three-inverter/rtl/ThreeInverter.sv` with:
 
 ```systemverilog
-module UserDesign1 #(
+module ThreeInverter #(
   parameter int IO_WIDTH = 66
 ) (
   input  logic                clock,
@@ -83,7 +83,7 @@ the design drives a pin; 0 means the design releases it for an external input.
 
 ## 3. Write the unit test
 
-Open `designs/1/tests/UserDesign1Tb.sv`. Keep the module declaration, signals,
+Open `designs/three-inverter/tests/ThreeInverterTb.sv`. Keep the module declaration, signals,
 and `UserDesignDut` instance, and replace its `initial begin ... end` block with:
 
 ```systemverilog
@@ -115,7 +115,7 @@ initial begin
       $fatal(1, "unused output bits are not zero");
   end
 
-  $display("USER DESIGN 1 UNIT TEST PASS");
+  $display("THREE INVERTER UNIT TEST PASS");
   $finish;
 end
 ```
@@ -124,54 +124,35 @@ Run lint first. This step is required because it detects real combinational
 loops and other structural problems in user RTL:
 
 ```sh
-make design-lint DESIGN=designs/1
+make user-lint
 ```
 
 After lint passes, run the unit test:
 
 ```sh
-make design-test DESIGN=designs/1 TEST=io
+make user-test
 ```
 
 A successful run prints:
 
 ```text
-USER DESIGN 1 UNIT TEST PASS
+THREE INVERTER UNIT TEST PASS
 ```
 
-## 4. Register the design with FrameTop
+## 4. Connect temporarily to FrameTop
 
-After the standalone checks pass, add design 1 to the root
-`designs/registry.json`:
-
-```json
-{
-  "designs": [
-    "1/design.json"
-  ]
-}
-```
-
-If official designs are already listed, append the new entry without deleting
-them. Then run:
-
-```sh
-make registry-generate
-make registry-check
-```
-
-The generator updates `rtl/generated/FrameDesignRegistry.sv`. Do not edit that
-generated file manually.
+Do not edit the root registry. The Frame test chooses a free temporary ID and
+generates an isolated registry under `build/designs/three-inverter/frame/`.
 
 ## 5. Write the Frame integration test
 
-Open `designs/1/tests/FrameUserDesign1Tb.sv`. Keep the module declaration,
+Open `designs/three-inverter/tests/FrameThreeInverterTb.sv`. Keep the module declaration,
 clock, tri-state pin connections, and `FrameTop dut` instance. Replace its
 `initial begin ... end` block with:
 
 ```systemverilog
 initial begin
-  // Select design 1 through user_io[6:0] while reset is asserted.
+  // The build injects DESIGN_ID; select it while reset is asserted.
   test_io_oe[DESIGN_ID_WIDTH-1:0] = '1;
   test_io_out[DESIGN_ID_WIDTH-1:0] = DESIGN_ID;
 
@@ -182,7 +163,7 @@ initial begin
   #1ns;
 
   if (!dut.selection_valid || !dut.design_selected[DESIGN_ID])
-    $fatal(1, "design 1 was not selected through FrameTop");
+    $fatal(1, "three-inverter was not selected through FrameTop");
 
   // Drive user_io[12:10], which maps to the design's io_in[5:3].
   test_io_oe[DESIGN_ID_WIDTH + 5 : DESIGN_ID_WIDTH + 3] = 3'b111;
@@ -210,7 +191,7 @@ initial begin
     end
   end
 
-  $display("USER DESIGN 1 FRAME TEST PASS");
+  $display("THREE INVERTER FRAME TEST PASS");
   $finish;
 end
 ```
@@ -221,14 +202,14 @@ output pins at `user_io[9:7]`, or the test and design will create contention.
 Run in this order:
 
 ```sh
-make design-lint DESIGN=designs/1
-make design-frame-test DESIGN=designs/1 TEST=frame
+make user-lint
+make user-frame-test
 ```
 
 A successful run prints:
 
 ```text
-USER DESIGN 1 FRAME TEST PASS
+THREE INVERTER FRAME TEST PASS
 ```
 
 The Frame test suppresses a framework-level `UNOPTFLAT` false positive caused
@@ -238,14 +219,17 @@ loops inside user RTL.
 ## 6. Generate and inspect a waveform
 
 ```sh
-make frame-test DESIGN=designs/1 TEST=frame TRACE=1
-gtkwave build/waves/1/frame.fst
+make user-frame-test TRACE=1
+gtkwave build/waves/three-inverter/frame.fst
 ```
+
+Read `build/designs/three-inverter/frame/selected-id.txt` first. If it contains
+`1`, expand:
 
 Expand this hierarchy in GTKWave's SST pane:
 
 ```text
-FrameUserDesign1Tb
+FrameThreeInverterTb
 └── dut
     └── u_design_registry
         └── u_design_1
@@ -278,13 +262,14 @@ This is not a wiring error. `io_in[2:0]` is the physical readback of
 ## 7. Checks before submission
 
 ```sh
-make regression-fast
+make user-check
+make docs-check
 git diff --check
 git status --short
 ```
 
-Commit `designs/1/`, `designs/registry.json`, and the regenerated
-`rtl/generated/FrameDesignRegistry.sv`. Do not commit `build/` or FST waves.
+Contributors commit only `designs/three-inverter/`. Do not edit the permanent
+registry or commit `build/` and FST waves.
 
 ## Common errors
 
@@ -293,7 +278,7 @@ Commit `designs/1/`, `designs/registry.json`, and the regenerated
 - Output is `z`: the matching `io_oe` bit is not 1, or design 1 is not registered
   and selected.
 - Output is `x`: the test drives an output pin and conflicts with the design.
-- The Frame test says the design is not registered: check `designs/registry.json`
-  and run `make registry-generate`.
+- No user design is found: check `designs/three-inverter/design.json`; when
+  several unregistered designs exist, pass `DESIGN=designs/three-inverter`.
 - `io_in` contains output data in the waveform: this is normal output readback
   on bidirectional IO.

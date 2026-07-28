@@ -2,138 +2,97 @@
 
 [中文说明](user-design-registration.md)
 
-For the step-by-step onboarding flow, see the
-[User Design Integration Guide](user-guide.en.md). This document retains the
-detailed technical contracts for manifests, generators, and the registry.
+See the [User Design Integration Guide](user-guide.en.md) for contributor steps.
+This document defines the package, temporary Frame test, and permanent registry
+contracts.
 
-Stage 5 separates fast, self-contained user verification from final `FrameTop`
-integration. A user design package must be testable without compiling the
-reference SoC or any other user slot.
+## Identity separation
 
-## Repository layout
+The project separates three kinds of identity:
 
-```text
-designs/
-├── registry.json
-└── 1/
-    ├── design.json
-    ├── rtl/
-    ├── tests/
-    ├── include/     # optional
-    └── README.md    # optional
-```
+| Information | Source | Committed? |
+| --- | --- | --- |
+| Package name, module, sources, tests | `designs/<name>/design.json` | Yes |
+| Temporary Frame test ID | Chosen by the build under `build/` | No |
+| Permanent hardware design ID | Assigned in `designs/registry.json` | Yes |
 
-Each `designs/<id>/design.json` is the source of truth for one design package.
-The root `designs/registry.json` contains only package paths selected for final
-integration. A package does not need to appear in the root registry to run its
-standalone lint and tests.
+New user manifests therefore contain no `id`, and contributors do not edit the
+root registry.
 
-## Design manifest
+## Package manifest
 
-`design.json` records the design ID, name, top module, sources, include paths,
-defines, parameters, optional port mapping, and user tests. All paths are
-relative to the package directory and must remain inside it.
-
-The preferred zero-configuration top-level ports are `clock`, `reset`, `io_in`,
-`io_out`, and `io_oe`. Designs with different port names declare their mapping
-in `design.json`.
-
-The implementation uses Python 3 and the standard-library `json` parser. It
-does not require PyYAML or another package installation. Unknown fields are
-rejected so spelling errors do not silently change a build.
-
-The supported fields are:
+`design.json` supports:
 
 | Field | Required | Meaning |
 | --- | --- | --- |
-| `id` | yes | Integer user slot from 1 through 127; slot 0 is reserved |
-| `name` | yes | Unique package name within the root registry |
-| `module` | yes | Actual user top module name |
-| `sources` | yes | Ordered `.v`/`.sv` paths inside the package |
+| `name` | yes | Package name, unique in the permanent registry |
+| `module` | yes | User top module |
+| `sources` | yes | Ordered `.v`/`.sv` sources inside the package |
 | `include_dirs` | no | Include directories inside the package |
-| `defines` | no | Compile defines; `null` means a value-less define |
-| `parameters` | no | Parameters passed to the actual user top |
-| `ports` | no | Semantic-to-actual port name mapping |
-| `tests` | registration requires it | Named `unit` or `frame` test declarations |
+| `defines` | no | Compile defines; `null` means no value |
+| `parameters` | no | Parameters passed to the user top |
+| `ports` | no | Semantic-to-actual port mapping |
+| `tests` | needed for testing | Named `unit` and `frame` tests |
+| `id` | legacy only | Omit in new packages; the registry owns the final ID |
 
-For example, the standard port names require no `ports` entry. A design using
-`clk_i` can declare `"ports": {"clock": "clk_i"}` while the generated wrapper
-continues to expose `clock`.
+All paths are package-relative and cannot escape the package. Unknown fields are
+rejected. The standard ports are `clock/reset/io_in/io_out/io_oe`.
 
-## Standalone flow
-
-```sh
-make design-lint DESIGN=designs/<id>
-make design-test DESIGN=designs/<id>
-make design-test DESIGN=designs/<id> TEST=io
-```
-
-The generator creates a temporary `UserDesignDut.sv` under
-`build/designs/<id>/` with the stable frame interface. Standalone commands compile
-only the selected package, generated wrapper, and requested user testbench.
-They do not compile the reference SoC, other user packages, or the complete
-128-slot frame.
-
-## Frame integration flow
+## Contributor verification
 
 ```sh
-make registry-check
-make registry-generate
-make design-frame-test DESIGN=designs/<id>
+make user-lint
+make user-test
+make user-frame-test
+make user-check
 ```
 
-`design-frame-test` requires the selected package to be present in the root
-registry and reports that condition before invoking Verilator.
+`find-user-design` excludes registered packages and selects the only remaining
+`designs/*/design.json`. Multiple candidates require `DESIGN=<path>`.
 
-Every registered package must declare at least one `unit` test and one `frame`
-test. An unregistered package may omit tests while its interface is being
-developed, but it can only run the commands supported by its current manifest.
+For an unregistered Frame test, the generator chooses the first free ID and
+writes an isolated `FrameDesignRegistry.sv`, `user-designs.f`, `frame.f`, and
+`selected-id.txt` under `build/designs/<name>/frame/`. It injects that ID into
+the TB as `FRAME_TEST_DESIGN_ID`. No permanent source file changes.
 
-The generator reads `registry.json` and emits:
+## Permanent registry
 
-- `rtl/generated/FrameDesignRegistry.sv`, committed to Git;
-- `build/generated/user-designs.f`, not committed;
-- a 128-bit `design_present` mask used by the frame control logic.
+Permanent entries own both the ID and package path:
 
-The generated registry contains the port adapters and instances for registered
-designs. Unregistered slots have no module instance, return zero data and zero
-output enable, remain in reset, and cannot enable a gated clock. `FrameTop`
-instantiates one fixed `FrameDesignRegistry` rather than knowing user module
-names.
+```json
+{
+  "designs": [
+    {
+      "id": 12,
+      "manifest": "counter32/design.json"
+    }
+  ]
+}
+```
 
-## Implemented behavior
+A maintainer runs:
 
-- `design-build` validates one package and generates an isolated wrapper and
-  filelist.
-- `registry-filelist` validates all registered packages and prepares the
-  temporary root filelist.
-- `generate-registry` emits wrappers, instances, tie-offs, and the
-  `design_present` mask in deterministic ID order.
-- `check-registry` compares regenerated content with the committed RTL without
-  modifying it.
-- Manifest validation aggregates all discovered errors and exits nonzero.
-- Root regression discovers every declared test from the registry; adding a
-  package does not require editing the root Makefile.
+```sh
+make integrate-design DESIGN=designs/counter32 DESIGN_ID=12
+```
 
-The generator provides a check-only mode that compares regenerated content with
-the committed registry without modifying source files. CI uses this mode to
-reject stale generated RTL.
+The command checks ID, name, module, and path conflicts; updates and regenerates
+the permanent registry; and reruns the Frame test with the final ID. Commit the
+updated `designs/registry.json` and generated registry RTL with the package.
 
-## Validation
+Legacy string entries and manifest-level IDs remain readable during migration.
+A legacy manifest ID that disagrees with its registry ID is rejected.
 
-Validation reports all discovered errors before exiting with a nonzero status.
-It checks JSON structure, ID range and uniqueness, reserved design 0, package
-containment, source/include/test paths, module names, port mappings, parameters,
-defines, generated outputs, and deterministic regeneration.
+## Generation and regression
 
-## Acceptance
+- `design-build` validates a package and creates wrappers, test filelists, and
+  an isolated Frame registry;
+- `find-user-design` discovers one unregistered package;
+- `integrate-design` assigns the permanent ID;
+- `registry-filelist` and `generate-registry` build permanent integration files;
+- `check-registry` rejects stale generated RTL;
+- `regression-fast` runs all tests declared by the permanent registry.
 
-Stage 5 acceptance requires:
-
-- a package can run standalone lint and tests without root registration;
-- a temporary smoke-test design is generated and runs through `FrameTop`;
-- input, output, reset, clock gating, and runtime selector locking are tested;
-- an unregistered slot remains stopped, reset, and high impedance;
-- invalid manifests fail with actionable diagnostics;
-- clean regeneration is deterministic;
-- the design 0 reference regression remains passing.
+Permanent designs require both unit and Frame tests. ID 0 is reserved for the
+reference design; user IDs range from 1 through 127. IDs, names, modules, and
+manifest paths must be unique.
