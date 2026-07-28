@@ -13,6 +13,7 @@
 !/reference/
 !/rtl/
 !/scripts/
+!/site/
 !/tests/
 
 # QA notes are local discussion records and are not repository deliverables.
@@ -28,3 +29,6 @@
 **/*.fst
 **/*.fsdb
 **/obj_dir/
+/site/node_modules/
+/site/.vitepress/cache/
+/site/.vitepress/dist/

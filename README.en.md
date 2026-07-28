@@ -5,6 +5,8 @@
 `mpc-frame` is a chip-frame project for integrating multiple user designs. It
 also contains a standalone reference SoC as design 0.
 
+Rendered documentation: [mpc-frame GitHub Pages](https://openecos-projects.github.io/mpc-frame/).
+
 `FrameTop` is the chip top. Design 0 is fixed. User designs use IDs 1 through
 127 and are listed in `designs/registry.json`. Every user design connects
 through the same five signals: `clock`, `reset`, `io_in`, `io_out`, and `io_oe`.
@@ -68,3 +70,16 @@ contention tests, and every registered user design's lint, unit tests, and Frame
 tests. `make regression` also runs the complete reference SoC tests.
 
 Set `TRACE=1` to create FST waveforms under `build/waves/` for Frame tests.
+
+## Local documentation site
+
+Install the dependencies once and start the local site:
+
+```sh
+make docs-site-install
+make docs-site-dev
+```
+
+Open `http://localhost:5173/mpc-frame/`. Before submitting documentation, run
+`make docs-site-check` to validate bilingual pairs, internal links, and the
+static build.

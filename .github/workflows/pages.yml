@@ -1,0 +1,76 @@
+name: Documentation Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "README*.md"
+      - "docs/**"
+      - "reference/**/*.md"
+      - "site/**"
+      - "scripts/check_docs.py"
+      - "scripts/prepare_docs_site.py"
+      - "Makefile"
+      - ".github/workflows/pages.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "README*.md"
+      - "docs/**"
+      - "reference/**/*.md"
+      - "site/**"
+      - "scripts/check_docs.py"
+      - "scripts/prepare_docs_site.py"
+      - "Makefile"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: build-documentation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - name: Set up Pages
+        uses: actions/configure-pages@v5
+      - name: Install dependencies
+        run: npm --prefix site ci
+      - name: Validate and build documentation
+        run: make docs-site-check
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: build/docs-site/.vitepress/dist
+
+  deploy:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    name: deploy-documentation
+    needs: build
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

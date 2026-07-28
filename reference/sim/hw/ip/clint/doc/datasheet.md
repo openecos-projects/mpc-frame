@@ -68,4 +68,4 @@ clint.MSIP = 1; // 触发
 clint.MSIP = 0; // 清除
 ```
 
-完整 driver 和测试代码位于 `../driver/`。
+当前裁剪后的参考工程只保留 RTL 接口示例，不包含独立的 CLINT 软件驱动。

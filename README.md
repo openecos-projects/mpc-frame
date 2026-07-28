@@ -4,9 +4,11 @@
 
 `mpc-frame` 是一个用于拼片的顶层空壳模板工程，并附带一个独立的 SoC 参考设计。
 
+可视化文档站：[mpc-frame GitHub Pages](https://openecos-projects.github.io/mpc-frame/)。
+
 `FrameTop` 是芯片总顶层，设计 0 固定为参考设计，设计 1 到设计 127 通过 JSON registry 注册。拼片用户通过统一的 `clock/reset/io_in/io_out/io_oe` 语义接口接入自己的设计。
 
-当前参考 SoC 作为设计 0 的 adapter 接入。参考 SoC 固定维护在 [`reference/sim/`](reference/sim/) 中，作为当前工程的一部分提交和构建，不使用 submodule。
+当前参考 SoC 作为设计 0 的 adapter 接入。参考 SoC 固定维护在 [`reference/sim/`](reference/sim/README.md) 中，作为当前工程的一部分提交和构建，不使用 submodule。
 
 当前保留的顶层接口：
 
@@ -77,3 +79,15 @@ registry 并重新验证。完整格式和流程见
 GitHub CI 在 push 和 pull request 上分别执行源码一致性、FrameTop 快速回归和
 reference 完整回归，也支持手动生成 FST artifact。配置和门禁说明见
 [持续集成](docs/ci.md)。
+
+## 本地文档站
+
+首次安装依赖后启动本地预览：
+
+```sh
+make docs-site-install
+make docs-site-dev
+```
+
+浏览器访问 `http://localhost:5173/mpc-frame/`。提交前可运行
+`make docs-site-check`，同时检查中英双语约束、站内链接和静态构建。

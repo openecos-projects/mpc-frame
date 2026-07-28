@@ -104,7 +104,8 @@ clint.MSIP = 0 // clear the software interrupt
 ... // some codes
 
 ```
-complete driver and test codes in [driver](../driver/) dir.
+The trimmed reference keeps the RTL interface example only; it does not include
+a standalone CLINT software driver.
 
 ### Resoureces
 ### References

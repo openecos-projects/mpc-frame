@@ -9,6 +9,9 @@ reference 固件使用发行版提供的 `riscv64-unknown-elf` 工具链。
 CI 固定 5.050 是为了得到可重复的结果，不代表用户必须安装完全相同的版本。
 本地用户流程也验证过 5.032；根 Makefile 会对非关键警告参数先做能力检测。
 
+文档站使用独立的 `.github/workflows/pages.yml`。它以 Node.js 24 构建 VitePress
+静态文件，不会把开发服务器部署到公网。
+
 ## 自动门禁
 
 提交到 `main` 或向 `main` 提交 pull request 时运行三个独立检查：
@@ -36,3 +39,16 @@ make frame-test DESIGN=<design> TEST=<test> TRACE=1
 
 日志和 `build/waves/` 下的 FST 作为 artifact 保留七天。reference 设计使用
 `design=0`，测试名可选 `boot`、`uart`、`gpio` 或 `psram`。
+
+## 文档站部署
+
+文档、主题或站点构建脚本发生变化时，`Documentation Pages` 工作流会先运行：
+
+```sh
+make docs-site-check
+```
+
+pull request 只构建并验证站点。合并到 `main` 后，工作流把
+`build/docs-site/.vitepress/dist` 上传为 Pages artifact，再部署到
+`https://openecos-projects.github.io/mpc-frame/`。仓库第一次启用时，需要在 GitHub
+的 `Settings > Pages > Build and deployment` 中把 Source 设为 `GitHub Actions`。

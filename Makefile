@@ -44,8 +44,11 @@ DESIGN_MODULE ?=
 DESIGN_OUTPUT ?= $(CURDIR)/designs/$(DESIGN_NAME)
 CREATE_MODULE_ARG := $(if $(DESIGN_MODULE),--module $(DESIGN_MODULE),)
 USER_DESIGN_ARG := $(if $(DESIGN),--design $(DESIGN),)
+DOCS_SITE_ROOT := $(CURDIR)/site
+DOCS_SITE_SOURCE := $(CURDIR)/build/docs-site
 
-.PHONY: help require-design require-design-id verilator-version docs-check lint lint-user registry-filelist registry-check registry-generate \
+.PHONY: help require-design require-design-id verilator-version docs-check docs-site-install docs-site-prepare \
+	docs-site-dev docs-site-build docs-site-preview docs-site-check lint lint-user registry-filelist registry-check registry-generate \
 	create-design integrate-design user-lint user-test user-frame-test user-check \
 	design-lint design-test design-frame-test manifest-test stage5-test stage9-test \
 	frame-test regression-fast regression control-test \
@@ -67,6 +70,9 @@ help:
 	@printf '%s\n' '  make registry-check     Validate manifests and generated registry RTL'
 	@printf '%s\n' '  make registry-generate  Regenerate committed registry RTL'
 	@printf '%s\n' '  make docs-check         Validate Chinese-first bilingual documentation'
+	@printf '%s\n' '  make docs-site-dev      Start the local documentation site'
+	@printf '%s\n' '  make docs-site-build    Build the GitHub Pages site'
+	@printf '%s\n' '  make docs-site-check    Validate text and build the site'
 	@printf '%s\n' '  make stage5-test        Run manifest, standalone, and FrameTop tests'
 	@printf '%s\n' '  make control-test  Verify design selection, reset, clock gating, and IO isolation'
 	@printf '%s\n' '  make io-contention-test  Verify the external payload drive contract'
@@ -89,6 +95,24 @@ verilator-version:
 
 docs-check:
 	@$(PYTHON) $(CURDIR)/scripts/check_docs.py
+
+docs-site-install:
+	@npm --prefix $(DOCS_SITE_ROOT) ci
+
+docs-site-prepare:
+	@$(PYTHON) $(CURDIR)/scripts/prepare_docs_site.py \
+		--root $(CURDIR) --output $(DOCS_SITE_SOURCE)
+
+docs-site-dev: docs-site-prepare
+	@npm --prefix $(DOCS_SITE_ROOT) run dev
+
+docs-site-build: docs-site-prepare
+	@npm --prefix $(DOCS_SITE_ROOT) run build
+
+docs-site-preview:
+	@npm --prefix $(DOCS_SITE_ROOT) run preview
+
+docs-site-check: docs-check docs-site-build
 
 registry-filelist:
 	@$(PYTHON) $(REGISTRY_TOOL) registry-filelist \

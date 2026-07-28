@@ -182,7 +182,8 @@ gpio_handle(){
     irq_val = gpio.STAT           // read and clear irq flag
 }
 ```
-complete driver and test codes in [driver](../driver/) dir.
+The trimmed reference keeps the RTL interface example only; it does not include
+a standalone GPIO software driver.
 
 ### Resoureces
 ### References
