@@ -1,19 +1,14 @@
 # GPIO
 
-## Features
-* 1~32 channels support
-* Input and output direction control
-* Pin multiplexer with two alternate ouput function
-* Three configurable modes
-    * input pull-down with schmitt trigger
-    * ouput push-pull
-    * alternate function push-pull
-* Maskable input interrupt with multiple triggering modes
-    * rise mode
-    * fall mode
-    * high-level mode
-    * low-level mode
-* Static synchronous design
-* Full synthesizable
+[English](README.en.md)
 
-FULL vision of datatsheet can be found in [datasheet.md](./doc/datasheet.md).
+## 特性
+
+- 支持 1～32 路 GPIO
+- 输入和输出方向控制
+- 两路备选输出功能的引脚复用
+- 输入下拉施密特、推挽输出和复用推挽三种模式
+- 支持上升沿、下降沿、高电平和低电平的可屏蔽输入中断
+- 静态同步设计，完全可综合
+
+完整寄存器说明见[中文数据手册](doc/datasheet.md)。

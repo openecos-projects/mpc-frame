@@ -1,193 +1,74 @@
-## Datasheet
+# PLIC 数据手册
 
-### Overview
-The `plic(platform level interrupt controller)` IP is a fully parameterised soft IP recording the SoC architecture and ASIC backend informations. The IP features an APB4 slave interface, fully compliant with the AMBA APB Protocol Specification v2.0.
+[English](datasheet.en.md)
 
-### Feature
-* Compatible with RISCV PLIC 1.0.0 standard
-* One hart target support only
-* Up to 31 external peripheral interrupt
-* 16 interrupt prority levels support
-* Rising edge and high level trigger types configuration
-* Programmable pending counter to queue edge trigger interrupt requests
-* Independent maskable and pending bit for every interrupt source
-* Static synchronous design
-* Full synthesizable
+## 概述
 
-### Interface
-| port name | type        | description          |
-|:--------- |:------------|:---------------------|
-| apb4      | interface   | apb4 slave interface |
-| plic ->| interface | plic interface |
-| `plic.irq_i` | input | plic interrupt source input |
-| `plic.irq_o` | output | plic interrupt output |
+PLIC 是参数化平台级中断控制器软 IP，兼容 RISC-V PLIC 1.0.0，提供 APB4 从
+接口，支持一个 hart target 和最多 31 路外部中断。
 
-### Register
+## 接口
 
-| name | offset  | length | description |
-|:----:|:-------:|:-----: | :---------: |
-| [CTRL](#control-register) | 0x0 | 4 | control register |
-| [TM](#trigger-mode-register) | 0x4 | 4 |  trigger mode register |
-| [PRIO1](#priority-1-reigster) | 0x8 | 4 | priority 1 register |
-| [PRIO2](#priority-2-reigster) | 0xC | 4 | priority 2 register |
-| [PRIO3](#priority-3-reigster) | 0x10 | 4 | priority 3 register |
-| [PRIO4](#priority-4-reigster) | 0x14 | 4 | priority 4 register |
-| [IP](#interrupt-pend-reigster) | 0x18 | 4 | interrupt pend register |
-| [IE](#interrupt-enable-reigster) | 0x1C | 4 | interrupt enable register |
-| [THOLD](#interrupt-threshold-reigster) | 0x20 | 4 | interrupt threshold register |
-| [CLAIMCOMP](#interrupt-claimcomplete-register) | 0x24 | 4 | interrupt claim/complete register |
+| 端口 | 类型 | 说明 |
+| --- | --- | --- |
+| `apb4` | interface | APB4 从接口 |
+| `plic.irq_i` | input | 外部中断源输入 |
+| `plic.irq_o` | output | 发往 hart 的中断输出 |
 
-#### Control Register
-| bit | access  | description |
-|:---:|:-------:| :---------: |
-| `[31:PLIC_GWP_WIDTH]` | none | reserved |
-| `[PLIC_GWP_WIDTH-1:1]` | RW | TNM |
-| `[0:0]` | RW | EN |
+## 寄存器
 
-reset value: `0x0000_0000`
+| 名称 | 偏移 | 长度 | 说明 |
+| --- | ---: | ---: | --- |
+| `CTRL` | `0x00` | 4 | 控制和 gateway 最大触发数 |
+| `TM` | `0x04` | 4 | 32 路触发模式 |
+| `PRIO1` | `0x08` | 4 | IRQ 0～7 优先级 |
+| `PRIO2` | `0x0c` | 4 | IRQ 8～15 优先级 |
+| `PRIO3` | `0x10` | 4 | IRQ 16～23 优先级 |
+| `PRIO4` | `0x14` | 4 | IRQ 24～31 优先级 |
+| `IP` | `0x18` | 4 | pending 状态 |
+| `IE` | `0x1c` | 4 | 中断使能 |
+| `THOLD` | `0x20` | 4 | target 0 优先级阈值 |
+| `CLAIMCOMP` | `0x24` | 4 | claim/complete |
 
-* TNM: gateway max trigger number
+寄存器复位值均为 `0x0000_0000`。
 
-* EN: plic core enable
-    * `EN=1'b0`: disable plic core
-    * `EN=1'b1`: otherwise
+### CTRL
 
-#### Trigger Mode Register
-| bit | access  | description |
-|:---:|:-------:| :---------: |
-| `[31:31]` | RW | TM31 |
-| `[30:30]` | RW | TM30 |
-...
-| `[1:1]` | RW | TM1 |
-| `[0:0]` | RW | TM0 |
+- `CTRL.EN`：0 禁用 PLIC，1 启用。
+- `CTRL.TNM`：gateway 最大触发数。
 
-reset value: `0x0000_0000`
+### TM 和优先级
 
-* TM[i]: trigger mode for irq[i]
-    * `TM[i]=1'b0`: level trigger
-    * `TM[i]=1'b1`: edge trigger
+- `TM[i] = 0`：IRQ i 为电平触发；`TM[i] = 1`：边沿触发。
+- 每路优先级占 4 位，分布在 `PRIO1`～`PRIO4`。
 
-#### Priority 1 Reigster
-| bit | access  | description |
-|:---:|:-------:| :---------: |
-| `[31:28]` | RW | PRIO7 |
-...
-| `[7:4]` | RW | PRIO1 |
-| `[3:0]` | RW | PRIO0 |
+### Pending、使能和阈值
 
-reset value: `0x0000_0000`
+- `IP[i]`：IRQ i 的只读 pending 状态。
+- `IE[i]`：IRQ i 的使能位。
+- `THOLD`：只有优先级高于阈值的中断才能到达 target。
 
-* PRIO1[i]: trigger mode for irq[i]
+### Claim/Complete
 
+读取 `CLAIMCOMP` 返回当前可处理的 IRQ ID；处理完成后将同一 ID 写回，清除该
+中断的 in-service 状态。
 
-#### Priority 2 Reigster
-| bit | access  | description |
-|:---:|:-------:| :---------: |
-| `[31:28]` | RW | PRIO15 |
-...
-| `[7:4]` | RW | PRIO9 |
-| `[3:0]` | RW | PRIO8 |
+## 编程示例
 
-reset value: `0x0000_0000`
-
-* PRIO1[i]: trigger mode for irq[i]
-
-
-#### Priority 3 Reigster
-| bit | access  | description |
-|:---:|:-------:| :---------: |
-| `[31:28]` | RW | PRIO23 |
-...
-| `[7:4]` | RW | PRIO17 |
-| `[3:0]` | RW | PRIO16 |
-
-reset value: `0x0000_0000`
-
-* PRIO1[i]: trigger mode for irq[i]
-
-
-#### Priority 4 Reigster
-| bit | access  | description |
-|:---:|:-------:| :---------: |
-| `[31:28]` | RW | PRIO31 |
-...
-| `[7:4]` | RW | PRIO25 |
-| `[3:0]` | RW | PRIO24 |
-
-reset value: `0x0000_0000`
-
-* PRIO1[i]: trigger mode for irq[i]
-
-#### Interrupt Pend Reigster
-| bit | access  | description |
-|:---:|:-------:| :---------: |
-| `[31:31]` | RO | IP31 |
-...
-| `[1:1]` | RO | IP1 |
-| `[0:0]` | RO | IP0 |
-
-reset value: `0x0000_0000`
-
-* IP[i]: interrupt pend for irq[i]
-
-#### Interrupt Enable Reigster
-| bit | access  | description |
-|:---:|:-------:| :---------: |
-| `[31:31]` | RW | IE31 |
-...
-| `[1:1]` | RW | IE1 |
-| `[0:0]` | RW | IE0 |
-
-reset value: `0x0000_0000`
-
-* IE[i]: interrupt enable for irq[i]
-
-#### Interrupt Threshold Reigster
-| bit | access  | description |
-|:---:|:-------:| :---------: |
-| `[31:PLIC_IRQ_WIDTH]` | none | reserved |
-| `[PLIC_IRQ_WIDTH-1:0]` | RW | THOLD |
-
-reset value: `0x0000_0000`
-
-* THOLD: interrupt trigger threshold
-
-#### Interrupt Claim/Complete Register
-| bit | access  | description |
-|:---:|:-------:| :---------: |
-| `[31:PLIC_IRQ_WIDTH]` | none | reserved |
-| `[PLIC_IRQ_WIDTH-1:0]` | RW | CLAIMCOMP |
-
-reset value: `0x0000_0000`
-
-* CLAIMCOMP: interrupt claim or comp
-    * read `CLAIMCOMP` to return interrupt irq number
-    * write `CLAIMCOMP` to clear interrupt irq
-
-### Program Guide
-These registers can be accessed by 4-byte aligned read and write. C-like pseudocode init operation:
 ```c
-plic.CTRL.TNM = TNM_bit     // set the edge trigger max number
-plic.TM       = TM_32_bit   // set trigger mode for irq[31-0]
-plic.PRIO1    = PRO1_32_bit // set priority for irq[7-0]
-plic.PRIO2    = PRO2_32_bit // set priority for irq[15-8]
-plic.PRIO3    = PRO3_32_bit // set priority for irq[23-16]
-plic.PRIO4    = PRO4_32_bit // set priority for irq[31-24]
-plic.THOLD    = THOLD_bit   // set the trigger threshold for target 0
-plic.IE       = IE_32_bit   // set interrupt enable for irq[31-0]
-plic.CTRL.EN  = 1           // enable plic core
+plic.CTRL.TNM = TNM;
+plic.TM       = TRIGGER_MODES;
+plic.PRIO1    = PRIORITY_0_7;
+plic.PRIO2    = PRIORITY_8_15;
+plic.PRIO3    = PRIORITY_16_23;
+plic.PRIO4    = PRIORITY_24_31;
+plic.THOLD    = THRESHOLD;
+plic.IE       = ENABLE_MASK;
+plic.CTRL.EN  = 1;
 
-```
-claim/comp operation:
-```c
-void plic_handle() {
-    uint32_t id    = plic.CLAIMCOMP // get irq id
-    ...                             // handle specified extern irq
-    ...
-    plic.CLAIMCOMP = id             // clear irq
+void plic_handle(void) {
+    uint32_t id = plic.CLAIMCOMP;
+    handle_external_irq(id);
+    plic.CLAIMCOMP = id;
 }
 ```
-
-### Resoureces
-### References
-### Revision History

@@ -45,8 +45,8 @@ jobs:
         run: |
           set -euo pipefail
           python -m py_compile scripts/design_registry.py scripts/run_regression.py \
-            scripts/test_user_template.py
-          make manifest-test registry-check
+            scripts/test_user_template.py scripts/check_docs.py
+          make docs-check manifest-test registry-check
           make registry-generate
           git diff --check
           git diff --exit-code

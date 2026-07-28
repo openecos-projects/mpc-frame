@@ -1,8 +1,10 @@
-# Reference Design
+# 参考设计
+
+[English](reference-design.en.md)
 
 `reference/sim/` 是 `mpc-frame` 当前附带的 SoC 参考设计，来源为同级 `sim` 工程的当前版本。
 
-## Boundary
+## 工程边界
 
 - `FrameTop.sv` 是 mpc-frame 的默认芯片总顶层。
 - 设计 0 通过 `rtl/ReferenceDesign0.sv` 接入参考 SoC。
@@ -12,7 +14,7 @@
 - 参考设计只启用 core 0（NPC）、一组 UART0、两组 GPIO、一颗 SPI Flash 和一颗 QSPI PSRAM。
 - 参考设计使用独立 UART IO，不与 GPIO 复用：
 
-  | IO | Function |
+  | IO | 功能 |
   | --- | --- |
   | `user_io[6:0]` | Design ID |
   | `user_io[7]` | UART0 RX |
@@ -29,7 +31,7 @@
 
 - frame 的通用顶层接口仍为 `clock`、`reset` 和 `user_io`；上述映射是 design 0 参考设计的固定 IO 约定。
 
-## Reference Entry Points
+## 参考设计入口
 
 frame 工程的基础入口为：
 
@@ -44,6 +46,6 @@ make regression
 
 reference 的回归项目由 `reference/sim/tests.json` 描述，外设模型和 C++ harness 继续归 `reference/sim/dv/verilator` 管理。根回归调度器只负责测试选择、日志和波形路径。
 
-## Import Policy
+## 导入策略
 
 参考设计按 `sim` 工程快照导入，不带入其 Git 元数据和构建输出。参考设计更新时应在当前仓库内提交完整变更，并同步更新版本说明，避免手工复制产生路径或依赖漂移。

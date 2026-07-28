@@ -6,6 +6,13 @@ This guide starts from an empty design directory and walks through creating a
 circuit, testing it, connecting it to FrameTop, and running the final checks.
 You do not need to edit `FrameTop.sv` or the root RTL files.
 
+Complete worked examples:
+
+- [Three inverters](examples/three-inverter.en.md) for combinational logic and
+  bidirectional IO;
+- [32-bit counter](examples/counter-32bit.en.md) for sequential logic, clocking,
+  and synchronous reset.
+
 ## 0. Check the tools
 
 You need Python 3, GNU Make, a C++ compiler, and Verilator. Verilator 5.050 is

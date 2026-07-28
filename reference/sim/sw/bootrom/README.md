@@ -1,5 +1,7 @@
 # 归档启动镜像
 
+[English](README.en.md)
+
 当前只保留两个无需重新编译的验收镜像：
 
 - `hello/retrosoc_fw.bin`：Flash XIP 与 UART 输出。

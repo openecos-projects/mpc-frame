@@ -1,5 +1,7 @@
 # FrameTop 仿真与回归
 
+[English](simulation-regression.en.md)
+
 根工程统一测试入口负责调度，不要求所有设计使用同一种 harness。用户设计继续使用包内 SystemVerilog testbench，reference design 继续使用包含 Flash、PSRAM、UART 和 GPIO 模型的 C++ harness。
 
 ## 单项 FrameTop 测试

@@ -1,5 +1,7 @@
 # 测试用例 02：PSRAM 访问
 
+[English](testcase-psram.en.md)
+
 ## 目的
 
 验证软件可以通过 SoC 内存路径访问外部 PSRAM 窗口，并且 Verilator PSRAM 模型可以正确返回已写入的数据。

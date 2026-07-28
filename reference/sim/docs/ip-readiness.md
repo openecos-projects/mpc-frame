@@ -1,5 +1,7 @@
 # IP 状态
 
+[English](ip-readiness.en.md)
+
 | 模块 | 状态 | 验证 |
 | --- | --- | --- |
 | NPC core 0 | 启用 | 从外部 SPI Flash XIP 启动 |

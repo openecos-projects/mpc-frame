@@ -1,49 +1,46 @@
-# Design Selection, Clock, and Reset Control
+# 设计选择、时钟与复位控制
 
-This document defines the synthesizable stage 3 control contract for `FrameTop`.
+[English](design-control.en.md)
 
-## External contract
+本文定义 `FrameTop` 可综合的设计选择、时钟和复位控制契约。
 
-- `reset` is active high and must be asserted and released synchronously to `clock`.
-- Each reset assertion starts a new design selection cycle.
-- `reset` must remain asserted for at least 20 rising clock edges.
-- `user_io[6:0]` must remain stable for at least two rising clock edges before reset is released.
-- Changes to `user_io[6:0]` after reset release do not affect the running design.
+## 外部契约
 
-## Selection sequence
+- `reset` 高电平有效，必须相对 `clock` 同步拉高和释放。
+- 每次拉高 `reset` 都会开始一个新的设计选择周期。
+- `reset` 必须至少保持 20 个时钟上升沿。
+- 释放复位前，`user_io[6:0]` 必须至少跨越两个时钟上升沿保持稳定。
+- 释放复位后再修改 `user_io[6:0]`，不会影响正在运行的设计。
 
-While reset is asserted, the two-stage synchronizer continuously samples
-`user_io[6:0]`. All design clocks are disabled, every design reset is asserted,
-and payload output enables are forced low.
+## 选择时序
 
-After external reset is released:
+复位有效期间，两级同步器持续采样 `user_io[6:0]`。所有设计时钟关闭，所有设计
+保持复位，payload 的输出使能强制为低。
 
-1. The synchronized design ID is decoded to a one-hot selection.
-2. The selected clock gate is enabled only while the source clock is low.
-3. The selected design receives at least two complete clock edges while its
-   internal reset remains asserted.
-4. `selection_valid` becomes active, the selected reset is released, and its IO
-   output enables may reach the payload pads.
+外部复位释放后，控制逻辑按以下顺序工作：
 
-Unselected designs keep their clocks disabled and resets asserted. Reasserting
-external reset returns all payload pads to high impedance and permits a new
-design ID to be sampled.
+1. 将同步后的 design ID 解码为 one-hot 选择信号。
+2. 只在源时钟为低电平时打开被选设计的时钟门。
+3. 被选设计至少收到两个完整时钟边沿，同时内部复位继续保持有效。
+4. `selection_valid` 置位，释放被选设计的复位，其 IO 输出使能才可以到达
+   payload 引脚。
 
-## Clock gate mapping
+未选设计始终停钟并保持复位。重新拉高外部复位会让所有 payload 引脚回到高阻，
+并允许重新采样 design ID。
 
-`rtl/FrameClockGate.sv` is the technology-independent behavior used by lint and
-simulation. It latches the enable only during the source clock low phase, so an
-enable transition cannot create a shortened high pulse. The latch must be
-mapped to a target-process integrated clock-gating cell during stage 10.
+## 时钟门映射
 
-## Verification
+`rtl/FrameClockGate.sv` 是 lint 和仿真使用的工艺无关行为模型。它只在源时钟低电平
+期间锁存 enable，避免 enable 变化产生过短的高电平脉冲。进入流片阶段后，必须
+将该模块映射到目标工艺的集成时钟门控单元（ICG）。
 
-Run the dedicated control regression with:
+## 验证
+
+运行专用控制回归：
 
 ```sh
 make control-test
 ```
 
-The regression covers designs 0, 1, and 127, runtime selector isolation,
-reselection after reset, one-hot selection, reset containment, IO isolation,
-unselected clock shutdown, and gated-clock pulse width.
+该回归覆盖 design 0、1 和 127、运行期选择隔离、复位后重新选择、one-hot 选择、
+复位约束、IO 隔离、未选设计停钟和门控时钟脉宽。

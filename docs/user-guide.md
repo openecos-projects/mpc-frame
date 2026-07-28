@@ -5,6 +5,11 @@
 这份指南从一个空目录开始，带你完成创建电路、测试电路、接入 FrameTop 和提交前
 检查。第一次使用时按顺序执行即可，不需要修改 `FrameTop.sv` 或根目录的 RTL。
 
+完整示例：
+
+- [三路非门](examples/three-inverter.md)：适合学习组合逻辑和双向 IO；
+- [32 位计数器](examples/counter-32bit.md)：适合学习时序逻辑、时钟和同步复位。
+
 ## 0. 检查工具
 
 需要 Python 3、GNU Make、C++ 编译器和 Verilator。推荐 Verilator 5.050，工程也

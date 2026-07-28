@@ -1,5 +1,7 @@
 # IO 映射
 
+[English](io-map.en.md)
+
 `FrameTop` 对外提供 73 根双向 pad：
 
 ```systemverilog

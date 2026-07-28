@@ -1,5 +1,7 @@
 # mpc-frame 工程实施计划
 
+[English](implementation-plan.en.md)
+
 本文档描述从当前 RTL 骨架到可供用户使用的芯片模板所需完成的阶段、交付物和验收条件。已经冻结的设计选择、时钟和复位契约记录在 [Design Control](design-control.md) 中。
 
 ## 当前状态

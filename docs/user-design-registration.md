@@ -1,13 +1,14 @@
-# User Design Registration
+# 用户设计注册技术说明
 
-面向首次接入用户的操作步骤见 [用户设计接入指南](user-guide.md)。本文档保留
-manifest、生成器和 registry 的详细技术契约。
+[English](user-design-registration.en.md)
 
-Stage 5 separates fast, self-contained user verification from final `FrameTop`
-integration. A user design package must be testable without compiling the
-reference SoC or any other user slot.
+首次接入请先阅读[用户设计接入指南](user-guide.md)。本文保留 manifest、生成器和
+registry 的详细技术契约。
 
-## Repository layout
+用户设计必须能够在不编译 reference SoC、其他用户槽位和完整 128 槽 FrameTop
+的情况下独立验证，完成后再进入 FrameTop 集成。
+
+## 目录结构
 
 ```text
 designs/
@@ -16,48 +17,52 @@ designs/
     ├── design.json
     ├── rtl/
     ├── tests/
-    ├── include/     # optional
-    └── README.md    # optional
+    ├── include/     # 可选
+    └── README.md    # 可选
 ```
 
-Each `designs/<id>/design.json` is the source of truth for one design package.
-The root `designs/registry.json` contains only package paths selected for final
-integration. A package does not need to appear in the root registry to run its
-standalone lint and tests.
+每个 `designs/<id>/design.json` 是该设计 package 的唯一配置来源。根目录的
+`designs/registry.json` 只列出最终接入 FrameTop 的 package。未注册 package
+仍然可以运行独立 lint 和 unit test。
 
-## Design manifest
+## 设计清单（design manifest）
 
-`design.json` records the design ID, name, top module, sources, include paths,
-defines, parameters, optional port mapping, and user tests. All paths are
-relative to the package directory and must remain inside it.
+`design.json` 记录 design ID、名称、顶层模块、源码、include 路径、宏定义、参数、
+可选端口映射和用户测试。所有路径都相对 package 目录，且不得越过该目录边界。
 
-The preferred zero-configuration top-level ports are `clock`, `reset`, `io_in`,
-`io_out`, and `io_oe`. Designs with different port names declare their mapping
-in `design.json`.
+零配置顶层端口为 `clock`、`reset`、`io_in`、`io_out` 和 `io_oe`。使用其他端口名
+时，必须在 `design.json` 的 `ports` 字段中声明映射。
 
-The implementation uses Python 3 and the standard-library `json` parser. It
-does not require PyYAML or another package installation. Unknown fields are
-rejected so spelling errors do not silently change a build.
+实现使用 Python 3 标准库的 `json` 解析器，不依赖 PyYAML。未知字段会被拒绝，
+避免拼写错误静默改变构建行为。
 
-The supported fields are:
+支持字段如下：
 
-| Field | Required | Meaning |
+| 字段 | 是否必需 | 含义 |
 | --- | --- | --- |
-| `id` | yes | Integer user slot from 1 through 127; slot 0 is reserved |
-| `name` | yes | Unique package name within the root registry |
-| `module` | yes | Actual user top module name |
-| `sources` | yes | Ordered `.v`/`.sv` paths inside the package |
-| `include_dirs` | no | Include directories inside the package |
-| `defines` | no | Compile defines; `null` means a value-less define |
-| `parameters` | no | Parameters passed to the actual user top |
-| `ports` | no | Semantic-to-actual port name mapping |
-| `tests` | registration requires it | Named `unit` or `frame` test declarations |
+| `id` | 是 | 1 到 127 的用户槽位；0 保留给 reference |
+| `name` | 是 | 根 registry 内唯一的 package 名称 |
+| `module` | 是 | 用户实际顶层模块名 |
+| `sources` | 是 | package 内按顺序排列的 `.v`/`.sv` 源码 |
+| `include_dirs` | 否 | package 内 include 目录 |
+| `defines` | 否 | 编译宏；值为 `null` 表示无值宏 |
+| `parameters` | 否 | 传给用户顶层的参数 |
+| `ports` | 否 | 固定语义端口到实际端口名的映射 |
+| `tests` | 注册时必需 | 命名的 `unit` 或 `frame` 测试声明 |
 
-For example, the standard port names require no `ports` entry. A design using
-`clk_i` can declare `"ports": {"clock": "clk_i"}` while the generated wrapper
-continues to expose `clock`.
+标准端口名不需要 `ports` 字段。例如实际时钟名为 `clk_i` 时，可以声明：
 
-## Standalone flow
+```json
+{
+  "ports": {
+    "clock": "clk_i"
+  }
+}
+```
+
+生成的 wrapper 对外仍使用固定名称 `clock`。
+
+## 独立验证流程
 
 ```sh
 make design-lint DESIGN=designs/<id>
@@ -65,72 +70,60 @@ make design-test DESIGN=designs/<id>
 make design-test DESIGN=designs/<id> TEST=io
 ```
 
-The generator creates a temporary `UserDesignDut.sv` under
-`build/designs/<id>/` with the stable frame interface. Standalone commands compile
-only the selected package, generated wrapper, and requested user testbench.
-They do not compile the reference SoC, other user packages, or the complete
-128-slot frame.
+生成器会在 `build/designs/<id>/` 下创建临时 `UserDesignDut.sv`，提供固定 Frame
+接口。独立命令只编译所选 package、生成的 wrapper 和指定 testbench，不编译
+reference SoC、其他用户 package 或完整 FrameTop。
 
-## Frame integration flow
+必须先运行 `design-lint`。Frame 集成测试会忽略双向 IO 拓扑产生的框架级
+`UNOPTFLAT` 误报，因此用户 RTL 内部真实的组合环路应由独立 lint 发现。
+
+## FrameTop 集成流程
 
 ```sh
-make registry-check
 make registry-generate
+make registry-check
 make design-frame-test DESIGN=designs/<id>
 ```
 
-`design-frame-test` requires the selected package to be present in the root
-registry and reports that condition before invoking Verilator.
+`design-frame-test` 要求 package 已列入根 registry，否则会在启动 Verilator 前
+报告错误。
 
-Every registered package must declare at least one `unit` test and one `frame`
-test. An unregistered package may omit tests while its interface is being
-developed, but it can only run the commands supported by its current manifest.
+每个已注册 package 必须至少声明一个 `unit` 测试和一个 `frame` 测试。未注册
+package 在开发早期可以省略测试，但只能运行当前 manifest 能支持的命令。
 
-The generator reads `registry.json` and emits:
+生成器读取 `registry.json` 并产生：
 
-- `rtl/generated/FrameDesignRegistry.sv`, committed to Git;
-- `build/generated/user-designs.f`, not committed;
-- a 128-bit `design_present` mask used by the frame control logic.
+- `rtl/generated/FrameDesignRegistry.sv`：提交到 Git 的确定性生成 RTL；
+- `build/generated/user-designs.f`：不提交的临时 filelist；
+- 128 位 `design_present` 掩码：供 Frame 控制逻辑判断槽位是否存在。
 
-The generated registry contains the port adapters and instances for registered
-designs. Unregistered slots have no module instance, return zero data and zero
-output enable, remain in reset, and cannot enable a gated clock. `FrameTop`
-instantiates one fixed `FrameDesignRegistry` rather than knowing user module
-names.
+生成的 registry 包含端口 adapter 和已注册实例。未注册槽位没有模块实例，数据和
+输出使能为零，保持复位且不能打开门控时钟。`FrameTop` 只例化固定的
+`FrameDesignRegistry`，不直接依赖用户模块名。
 
-## Implemented behavior
+## 已实现行为
 
-- `design-build` validates one package and generates an isolated wrapper and
-  filelist.
-- `registry-filelist` validates all registered packages and prepares the
-  temporary root filelist.
-- `generate-registry` emits wrappers, instances, tie-offs, and the
-  `design_present` mask in deterministic ID order.
-- `check-registry` compares regenerated content with the committed RTL without
-  modifying it.
-- Manifest validation aggregates all discovered errors and exits nonzero.
-- Root regression discovers every declared test from the registry; adding a
-  package does not require editing the root Makefile.
+- `design-build` 校验单个 package，并生成隔离 wrapper 和 filelist。
+- `registry-filelist` 校验所有已注册 package，并准备根临时 filelist。
+- `generate-registry` 按 design ID 的确定顺序生成 wrapper、实例、tie-off 和
+  `design_present`。
+- `check-registry` 重新生成内容并与已提交 RTL 比较，不修改源码。
+- manifest 校验会汇总所有发现的问题，然后以非零状态退出。
+- 根回归从 registry 自动发现全部测试，新增 package 不需要修改根 Makefile。
 
-The generator provides a check-only mode that compares regenerated content with
-the committed registry without modifying source files. CI uses this mode to
-reject stale generated RTL.
+CI 使用 check-only 模式拒绝过期的生成 RTL。
 
-## Validation
+## 校验范围
 
-Validation reports all discovered errors before exiting with a nonzero status.
-It checks JSON structure, ID range and uniqueness, reserved design 0, package
-containment, source/include/test paths, module names, port mappings, parameters,
-defines, generated outputs, and deterministic regeneration.
+校验覆盖 JSON 结构、ID 范围与唯一性、保留的 design 0、package 路径边界、源码、
+include 和测试路径、模块名、端口映射、参数、宏定义、生成结果和确定性再生成。
 
-## Acceptance
+## 验收条件
 
-Stage 5 acceptance requires:
-
-- a package can run standalone lint and tests without root registration;
-- a temporary smoke-test design is generated and runs through `FrameTop`;
-- input, output, reset, clock gating, and runtime selector locking are tested;
-- an unregistered slot remains stopped, reset, and high impedance;
-- invalid manifests fail with actionable diagnostics;
-- clean regeneration is deterministic;
-- the design 0 reference regression remains passing.
+- package 不注册也能运行独立 lint 和测试；
+- 临时 smoke design 能生成并通过 FrameTop；
+- 输入、输出、复位、时钟门控和运行期选择锁定均有测试；
+- 未注册槽位保持停钟、复位和高阻；
+- 无效 manifest 给出可操作的错误；
+- 重新生成结果确定且无差异；
+- design 0 的 reference 回归保持通过。

@@ -1,187 +1,85 @@
-## Datasheet
+# GPIO 数据手册
 
-### Overview
-The `gpio(general purpose input/output)` IP is a fully parameterised soft IP recording the SoC architecture and ASIC backend informations. The IP features an APB4 slave interface, fully compliant with the AMBA APB Protocol Specification v2.0.
+[English](datasheet.en.md)
 
-### Feature
-* 1~32 channels support
-* Input and output direction control
-* Pin multiplexer with two alternate ouput function
-* Three configurable modes
-    * input pull-down with schmitt trigger
-    * ouput push-pull
-    * alternate function push-pull
-* Maskable input interrupt with multiple triggering modes
-    * rise mode
-    * fall mode
-    * high-level mode
-    * low-level mode
-* Static synchronous design
-* Full synthesizable
+## 概述
 
-### Interface
-| port name | type        | description          |
-|:--------- |:------------|:---------------------|
-| apb4      | interface   | apb4 slave interface |
-| gpio ->| interface | gpio interface |
-| `gpio.gpio_in_i` | input | gpio data input |
-| `gpio.gpio_out_o` | output | gpio data output |
-| `gpio.gpio_dir_o` | output | gpio direction output |
-| `gpio.gpio_alt_in_o` | output | alter io data output |
-| `gpio.gpio_alt_0_out_i` | input | alter 0 channel data output |
-| `gpio.gpio_alt_0_dir_i` | input | alter 0 channel direction output |
-| `gpio.gpio_alt_1_out_i` | input | alter 1 channel data output |
-| `gpio.gpio_alt_1_dir_i` | input | alter 1 channel direction output |
-| `gpio.irq_o` | output | gpio interrupt output |
+GPIO 是 1～32 路参数化软 IP，提供 APB4 从接口、方向控制、两路备选功能复用和
+多种输入中断触发方式。
 
-### Register
+## 接口
 
-| name | offset  | length | description |
-|:----:|:-------:|:-----: | :---------: |
-| [PADDIR](#pad-direction-register) | 0x0 | 4 | pad direction register |
-| [PADIN](#pad-data-in-register) | 0x4 | 4 | pad data in register |
-| [PADOUT](#pad-data-out-register) | 0x8 | 4 | pad data out register |
-| [INTEN](#interrupt-enable-register) | 0xC | 4 | interrupt enable register |
-| [INTTYPE0](#interrupt-type0-register) | 0x10 | 4 | interrupt type0 register |
-| [INTTYPE1](#interrupt-type1-register) | 0x14 | 4 | interrupt type1 register |
-| [INTSTAT](#interrupt-state-register) | 0x18 | 4 | interrupt state register |
-| [IOCFG](#io-config-register) | 0x1C | 4 | io configuration register |
-| [PINMUX](#pin-mux-register) | 0x20 | 4 | pin mux register |
+| 端口 | 类型 | 说明 |
+| --- | --- | --- |
+| `apb4` | interface | APB4 从接口 |
+| `gpio.gpio_in_i` | input | GPIO 输入 |
+| `gpio.gpio_out_o` | output | GPIO 输出 |
+| `gpio.gpio_dir_o` | output | GPIO 方向 |
+| `gpio.gpio_alt_in_o` | output | 送往复用功能的输入 |
+| `gpio.gpio_alt_0_out_i` | input | 备选功能 0 输出值 |
+| `gpio.gpio_alt_0_dir_i` | input | 备选功能 0 方向 |
+| `gpio.gpio_alt_1_out_i` | input | 备选功能 1 输出值 |
+| `gpio.gpio_alt_1_dir_i` | input | 备选功能 1 方向 |
+| `gpio.irq_o` | output | GPIO 中断 |
 
-#### PAD Direction Register
-| bit | access  | description |
-|:---:|:-------:| :---------: |
-| `[31:GPIO_NUM]` | none | reserved |
-| `[GPIO_NUM-1:0]` | RW | DIR |
+## 寄存器
 
-reset value: `0x0000_0000`
+| 名称 | 偏移 | 长度 | 说明 |
+| --- | ---: | ---: | --- |
+| `PADDIR` | `0x00` | 4 | 引脚方向 |
+| `PADIN` | `0x04` | 4 | 引脚输入数据 |
+| `PADOUT` | `0x08` | 4 | 引脚输出数据 |
+| `INTEN` | `0x0c` | 4 | 中断使能 |
+| `INTTYPE0` | `0x10` | 4 | 中断类型位 0 |
+| `INTTYPE1` | `0x14` | 4 | 中断类型位 1 |
+| `INTSTAT` | `0x18` | 4 | 中断状态 |
+| `IOCFG` | `0x1c` | 4 | IO 控制模式 |
+| `PINMUX` | `0x20` | 4 | 备选功能选择 |
 
-* DIR: pad direction
-    * `DIR[i] = 1'b0`: Ith gpio input
-    * `DIR[i] = 1'b1`: Ith gpio output
+有效位范围均为 `[GPIO_NUM-1:0]`，高位保留，复位值为 `0x0000_0000`。
 
-#### PAD Data In Register
-| bit | access  | description |
-|:---:|:-------:| :---------: |
-| `[31:GPIO_NUM]` | none | reserved |
-| `[GPIO_NUM-1:0]` | RO | IN |
+### 方向和数据
 
-reset value: `0x0000_0000`
+- `PADDIR[i] = 0`：第 i 路输入；`PADDIR[i] = 1`：第 i 路输出。
+- `PADIN[i]`：只读的引脚实际输入值。
+- `PADOUT[i]`：软件控制模式下的输出值。
 
-* IN: pad data in
+### 中断
 
-#### PAD Data Out Register
-| bit | access  | description |
-|:---:|:-------:| :---------: |
-| `[31:GPIO_NUM]` | none | reserved |
-| `[GPIO_NUM-1:0]` | RW | OUT |
+- `INTEN[i] = 1`：启用第 i 路输入中断。
+- `INTTYPE1[i: i]` 与 `INTTYPE0[i: i]` 组合定义触发方式：
 
-reset value: `0x0000_0000`
+  | `INTTYPE1` | `INTTYPE0` | 触发方式 |
+  | ---: | ---: | --- |
+  | 0 | 0 | 高电平 |
+  | 0 | 1 | 低电平 |
+  | 1 | 0 | 上升沿 |
+  | 1 | 1 | 下降沿 |
 
-* OUT: pad data out
+- `INTSTAT` 返回中断状态。
 
-#### Interrupt Enable Register
-| bit | access  | description |
-|:---:|:-------:| :---------: |
-| `[31:GPIO_NUM]` | none | reserved |
-| `[GPIO_NUM-1:0]` | RW | INTEN |
+### IO 复用
 
-reset value: `0x0000_0000`
+- `IOCFG[i] = 0`：软件 GPIO 控制；`IOCFG[i] = 1`：备选功能控制。
+- 备选模式下，`PINMUX[i] = 0` 选择通道 0，`PINMUX[i] = 1` 选择通道 1。
 
-* INTEN: interrupt enable
-    * `INTEN[i] = 1'b0`: disable Ith gpio input interrupt
-    * `INTEN[i] = 1'b1`: otherwise
+## 编程示例
 
-#### Interrupt Type0 Register
-| bit | access  | description |
-|:---:|:-------:| :---------: |
-| `[31:GPIO_NUM]` | none | reserved |
-| `[GPIO_NUM-1:0]` | RW | INTTYPE0 |
-
-reset value: `0x0000_0000`
-
-* INTTYPE0: interrupt type0
-
-#### Interrupt Type1 Register
-| bit | access  | description |
-|:---:|:-------:| :---------: |
-| `[31:GPIO_NUM]` | none | reserved |
-| `[GPIO_NUM-1:0]` | RW | INTTYPE1 |
-
-reset value: `0x0000_0000`
-
-* INTTYPE1: interrupt type1
-
-* `INTTYPE1 INTTYPE0 = 2'b00`: high level trigger
-* `INTTYPE1 INTTYPE0 = 2'b01`: low level trigger
-* `INTTYPE1 INTTYPE0 = 2'b10`: rise edge trigger
-* `INTTYPE1 INTTYPE0 = 2'b11`: fall level trigger
-
-#### Interrupt State Register
-| bit | access  | description |
-|:---:|:-------:| :---------: |
-| `[31:GPIO_NUM]` | none | reserved |
-| `[GPIO_NUM-1:0]` | RO | INTSTAT |
-
-reset value: `0x0000_0000`
-
-* INTSTAT: interrupt state
-
-#### IO Config Register
-| bit | access  | description |
-|:---:|:-------:| :---------: |
-| `[31:GPIO_NUM]` | none | reserved |
-| `[GPIO_NUM-1:0]` | RW | IOCFG |
-
-reset value: `0x0000_0000`
-
-* IOCFG: io control mode config
-    * `IOCFG[i] = 1'b0`: software control mode
-    * `IOCFG[i] = 1'b1`: alternate control mode
-
-#### Pin Mux Register
-| bit | access  | description |
-|:---:|:-------:| :---------: |
-| `[31:GPIO_NUM]` | none | reserved |
-| `[GPIO_NUM-1:0]` | RW | PINMUX |
-
-reset value: `0x0000_0000`
-
-* PINMUX: alternate io channel select
-    * `PINMUX[i] = 1'b0`: alternate 0 channel io select
-    * `PINMUX[i] = 1'b1`: alternate 1 channel io select
-
-### Program Guide
-These registers can be accessed by 4-byte aligned read and write. C-like pseudocode output operation:
 ```c
-// software control
-gpio.IOCFG[i]  = (uint32_t)0      // set to software control mode
-gpio.PADDIR[i] = (uint32_t)0      // set Ith gpio ouput mode
-gpio.PADOUT[i] = DATA_1_bit       // set Ith gpio output data
-// alternate control
-gpio.IOCFG[i]  = (uint32_t)1      // set to alternate io control mode
-gpio.PINMUX[i] = (uint32_t)[0, 1] // set the alternate channel io
-...                               // specific IP function config...
+// 软件输出
+gpio.IOCFG[i]  = 0;
+gpio.PADDIR[i] = 1;
+gpio.PADOUT[i] = DATA_1_BIT;
+
+// 备选功能
+gpio.IOCFG[i]  = 1;
+gpio.PINMUX[i] = ALT_CHANNEL;
+
+// 输入中断
+gpio.PADDIR[i]  = 0;
+gpio.INTEN[i]   = 1;
+gpio.INTTYPE0[i] = 0;
+gpio.INTTYPE1[i] = 1; // 上升沿
 ```
-input operation:
-```c
-gpio.IOCFG       = (uint32_t)0    // set to software control mode
-gpio.PADDIR[i]   = (uint32_t)1    // set Ith gpio ouput mode
-gpio.INTEN[i]    = (uint32_t)1    // enable Ith gpio irq
-gpio.INTTYPE0[i] = (uint32_t)0    // set Ith gpio rise edge trigger
-gpio.INTTYPE1[i] = (uint32_t)1    // set Ith gpio rise edge trigger
 
-// polling mode
-while(gpio.PADDIN[i] == 1) {} 
-
-// irq mode
-...
-gpio_handle(){
-    irq_val = gpio.STAT           // read and clear irq flag
-}
-```
-complete driver and test codes in [driver](../driver/) dir.
-
-### Resoureces
-### References
-### Revision History
+完整 driver 和测试代码位于 `../driver/`。

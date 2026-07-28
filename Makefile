@@ -45,7 +45,7 @@ DESIGN_OUTPUT ?= $(CURDIR)/designs/$(DESIGN_ID)
 CREATE_NAME_ARG := $(if $(DESIGN_NAME),--name $(DESIGN_NAME),)
 CREATE_MODULE_ARG := $(if $(DESIGN_MODULE),--module $(DESIGN_MODULE),)
 
-.PHONY: help require-design verilator-version lint lint-user registry-filelist registry-check registry-generate \
+.PHONY: help require-design verilator-version docs-check lint lint-user registry-filelist registry-check registry-generate \
 	create-design design-lint design-test design-frame-test manifest-test stage5-test stage9-test \
 	frame-test regression-fast regression control-test \
 	io-contention-test reference-verilate reference-sim reference-test clean
@@ -62,6 +62,7 @@ help:
 	@printf '%s\n' '  make regression [TRACE=1]       Add the complete reference tests'
 	@printf '%s\n' '  make registry-check     Validate manifests and generated registry RTL'
 	@printf '%s\n' '  make registry-generate  Regenerate committed registry RTL'
+	@printf '%s\n' '  make docs-check         Validate Chinese-first bilingual documentation'
 	@printf '%s\n' '  make stage5-test        Run manifest, standalone, and FrameTop tests'
 	@printf '%s\n' '  make control-test  Verify design selection, reset, clock gating, and IO isolation'
 	@printf '%s\n' '  make io-contention-test  Verify the external payload drive contract'
@@ -77,6 +78,9 @@ require-design:
 verilator-version:
 	@$(VERILATOR) --version
 	@printf '%s\n' 'Recommended Verilator version: $(VERILATOR_RECOMMENDED_VERSION)'
+
+docs-check:
+	@$(PYTHON) $(CURDIR)/scripts/check_docs.py
 
 registry-filelist:
 	@$(PYTHON) $(REGISTRY_TOOL) registry-filelist \

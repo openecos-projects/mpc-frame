@@ -1,24 +1,19 @@
-# SPI
+# SPI 控制器
 
-## Features
-* Compatible with Motorola SPI standard
-* Half duplex serial data transmission
-* SPI master mode only
-* Standard, dual and quad SPI mode support
-* Max 4 slave device select
-* Programmable prescaler
-    * max division factor is up to 2^16
-* MSB or LSB bit transmission order
-* Hardware or Software NSS configuration
-* 8, 16, 24 or 32 bits data transmission size
-* 1~65536 transmission length with hardware NSS
-* All CPOL and CPHA mode support
-* Programmable dummay and delay cycles configuration
-* Independent send and receive FIFO
-    * 16~64 data depth
-    * empty or no-emtpy status flag
-* Maskable send or receive interrupt and programmable threshold
-* Static synchronous design
-* Full synthesizable
+[English](README.en.md)
 
-FULL vision of datatsheet can be found in [datasheet.md](./doc/datasheet.md).
+## 特性
+
+- 兼容 Motorola SPI，支持主机半双工传输
+- 支持标准、Dual 和 Quad SPI
+- 最多四个片选
+- 最大 2^16 的可编程分频
+- 支持 MSB/LSB 优先、软硬件 NSS 和全部 CPOL/CPHA 模式
+- 支持 8、16、24 或 32 位数据宽度
+- 硬件 NSS 下支持 1～65536 次传输
+- 可编程 dummy 和 delay 周期
+- 独立收发 FIFO，深度 16～64
+- 可屏蔽收发中断和可编程阈值
+- 静态同步设计，完全可综合
+
+当前实现细节以 RTL 和 driver 源码为准。

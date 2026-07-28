@@ -1,109 +1,71 @@
-## Datasheet
+# CLINT 数据手册
 
-### Overview
-The `clint(core-local interruptor)` IP is a fully parameterised soft IP implementing the RISCV Privilege Specification v1.1 compatible CLINT. The IP features an APB4 slave interface, fully compliant with the AMBA APB Protocol Specification v2.0.
+[English](datasheet.en.md)
 
-### Feature
-* 64-bit programmable mtime and mtimecmp counter
-* Software interrupt support
-* Static synchronous design
-* Full synthesizable
+## 概述
 
-### Interface
-| port name | type        | description          |
-|:--------- |:------------|:---------------------|
-| apb4 | interface | apb4 slave interface |
-| clint ->| interface | clint slave interface |
-| `clint.tmr_irq_o` | output | timer irq ouput |
-| `clint.sfr_irq_o` | output | software irq ouput |
+CLINT（core-local interruptor）是参数化软 IP，实现兼容 RISC-V Privileged
+Specification v1.1 的本地定时器和软件中断，并提供符合 AMBA APB v2.0 的 APB4
+从接口。
 
-### Register
+## 特性
 
-| name | offset  | length | description |
-|:----:|:-------:|:-----: | :---------: |
-| [MSIP](#machine-mode-software-interrupt) | 0x0 | 4 | machine mode software interrupt |
-| [MTIMECMPL](#machine-timer-compare-low) | 0x4000 | 4 | machine timer compare low |
-| [MTIMECMPH](#machine-timer-compare-high) | 0x4004 | 4 | machine timer compare high |
-| [MTIMEL](#machine-timer-low) | 0xbff8 | 4 | machine timer low |
-| [MTIMEH](#machine-timer-high) | 0xbffc | 4 | machine timer high |
+- 64 位可编程 `mtime` 和 `mtimecmp`
+- 软件中断
+- 静态同步、完全可综合
 
-#### Machine Mode Software Interrupt
-| bit | access  | description |
-|:---:|:-------:| :---------: |
-| `[31:1]` | none | reserved |
-| `[0:0]` | RW | MSIP |
+## 接口
 
-reset value: `0x0000_0000`
+| 端口 | 类型 | 说明 |
+| --- | --- | --- |
+| `apb4` | interface | APB4 从接口 |
+| `clint.tmr_irq_o` | output | 定时器中断输出 |
+| `clint.sfr_irq_o` | output | 软件中断输出 |
 
-* MSIP: this bit is reflected in MSIP of the `mip` CSR. A machine-level software interrupt for a HART is
- pending or cleared by writing 1 or 0 respectively to the corresponding this MSIP bit
+## 寄存器
 
-#### Machine Timer Low
-| bit | access  | description |
-|:---:|:-------:| :---------: |
-| `[31:0]` | RO | MTIMEL |
+| 名称 | 偏移 | 长度 | 说明 |
+| --- | ---: | ---: | --- |
+| `MSIP` | `0x0000` | 4 | 机器模式软件中断 |
+| `MTIMECMPL` | `0x4000` | 4 | `mtimecmp[31:0]` |
+| `MTIMECMPH` | `0x4004` | 4 | `mtimecmp[63:32]` |
+| `MTIMEL` | `0xbff8` | 4 | `mtime[31:0]` |
+| `MTIMEH` | `0xbffc` | 4 | `mtime[63:32]` |
 
-reset value: `0x0000_0000`
+### MSIP
 
-* MTIMEL: the low 32-bit of 64-bit `mtime` CSR register
+| 位 | 访问 | 说明 |
+| --- | --- | --- |
+| `[31:1]` | - | 保留 |
+| `[0]` | RW | 写 1 挂起软件中断，写 0 清除 |
 
-#### Machine Timer High
-| bit | access  | description |
-|:---:|:-------:| :---------: |
-| `[31:0]` | RO | MTIMEH |
+复位值：`0x0000_0000`。
 
-reset value: `0x0000_0000`
+### MTIME
 
-* MTIMEH: the high 32-bit of 64-bit `mtime` CSR register
+`MTIMEL` 和 `MTIMEH` 为只读的 64 位自由运行计数器低、高 32 位，复位值均为
+`0x0000_0000`。
 
-#### Machine Timer Compare Low
-| bit | access  | description |
-|:---:|:-------:| :---------: |
-| `[31:0]` | RW | MTIMECMPL |
+### MTIMECMP
 
-reset value: `0xFFFF_FFFF`
+`MTIMECMPL` 和 `MTIMECMPH` 为可读写的 64 位比较值低、高 32 位，复位值均为
+`0xffff_ffff`。当 `mtime` 达到比较值时产生定时器中断。
 
-* MTIMECMPL: the low 32-bit of 64-bit `mtimecmp` CSR register
+## 编程示例
 
-#### Machine Timer Compare High
-| bit | access  | description |
-|:---:|:-------:| :---------: |
-| `[31:0]` | RW | MTIMECMPH |
+所有寄存器按 4 字节对齐访问：
 
-reset value: `0xFFFF_FFFF`
-
-* MTIMECMPH: the high 32-bit of 64-bit `mtimecmp` CSR register
-
-### Program Guide
-The software operation of `clint` is simple. These registers can be accessed by 4-byte aligned read and write. the C-like pseudocode of the timer interrupt operation:
 ```c
-clint.MTIMECMPL = MTIMECMP_LOW_32_bit  // write low 32-bit mtimecmp register
-clint.MTIMECMPH = MTIMECMP_HIGH_32_bit // write high 32-bit mtimecmp register
-... // some codes
+clint.MTIMECMPL = MTIMECMP_LOW_32;
+clint.MTIMECMPH = MTIMECMP_HIGH_32;
 
-// === mtime interrupt handle start ===
-// add new value to the mtime interrupt
-clint.MTIMECMPL = UPDATE_DELTA_VALUE & 0x0000FFFF
-clint.MTIMECMPH = UPDATE_DELTA_VALUE & 0xFFFF0000
-// === mtime interrupt handle end ===
+// 更新下一次定时器中断
+clint.MTIMECMPL = UPDATE_LOW_32;
+clint.MTIMECMPH = UPDATE_HIGH_32;
 
-... // some codes
-
+// 软件中断
+clint.MSIP = 1; // 触发
+clint.MSIP = 0; // 清除
 ```
-software interrupt operation:
-```c
-clint.MSIP = 1 // trigger software interrupt
-... // some codes
 
-// === software interrupt handle start ===
-clint.MSIP = 0 // clear the software interrupt
-// === software interrupt handle end ===
-
-... // some codes
-
-```
-complete driver and test codes in [driver](../driver/) dir.
-
-### Resoureces
-### References
-### Revision History
+完整 driver 和测试代码位于 `../driver/`。

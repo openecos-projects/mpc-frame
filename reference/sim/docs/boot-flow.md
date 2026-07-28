@@ -1,5 +1,7 @@
 # 启动流程
 
+[English](boot-flow.en.md)
+
 Verilator 流程从 `build/sw/<board>/<app>/` 读取软件原始二进制镜像，并通过 `+bootrom=<path>` 传给仿真 harness。
 
 ## 模板流程

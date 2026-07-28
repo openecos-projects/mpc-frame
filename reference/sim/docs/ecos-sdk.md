@@ -1,5 +1,7 @@
 # 软件 SDK 流程（ECOS-SDK）
 
+[English](ecos-sdk.en.md)
+
 `sw/ecos/` 是仓库内的 `mpc-soc` BSP package 根目录。合入 ECOS-SDK 时，将 `sw/ecos/` 的内容复制或合并到 `$(ECOS_SDK_HOME)/board/mpc-soc/`。
 
 ## 命令

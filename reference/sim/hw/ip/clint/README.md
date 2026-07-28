@@ -1,9 +1,12 @@
 # CLINT
 
-## Features
-* 64-bit programmable mtime and mtimecmp counter
-* Software interrupt support
-* Static synchronous design
-* Full synthesizable
+[English](README.en.md)
 
-FULL vision of datatsheet can be found in [datasheet.md](./doc/datasheet.md).
+## 特性
+
+- 64 位可编程 `mtime` 和 `mtimecmp` 计数器
+- 软件中断支持
+- 静态同步设计
+- 完全可综合
+
+完整寄存器说明见[中文数据手册](doc/datasheet.md)。

@@ -1,5 +1,7 @@
 # FRAME Reference SoC
 
+[English](README.en.md)
+
 该目录包含 `FrameTop` design 0 使用的固定参考设计源码。
 
 保留模块：

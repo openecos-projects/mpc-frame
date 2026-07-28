@@ -1,5 +1,7 @@
 # 软件
 
+[English](README.en.md)
+
 `sw/ecos/` 是仓库内的 `mpc-soc` BSP package 根目录。本仓库的本地软件包装会把 Verilator 可用的二进制产物写到 `build/sw/<board>/<app>/`。
 
 ```text

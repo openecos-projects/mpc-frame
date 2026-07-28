@@ -1,5 +1,7 @@
 # 持续集成
 
+[English](ci.en.md)
+
 根工程使用 `.github/workflows/ci.yml` 执行固定的 Ubuntu 24.04 单平台 CI，
 不使用构建缓存和多平台矩阵。Verilator 固定为 5.050，并从官方 tag 构建；
 reference 固件使用发行版提供的 `riscv64-unknown-elf` 工具链。

@@ -1,22 +1,12 @@
-# RCU
+# RCU 时钟复位控制
 
-<p>
-    <a href=".">
-      <img src="https://img.shields.io/badge/RTL%20dev-done-green?style=flat-square">
-    </a>
-    <a href=".">
-      <img src="https://img.shields.io/badge/FPGA%20verif-no%20start-wheat?style=flat-square">
-    </a>
-    <a href=".">
-      <img src="https://img.shields.io/badge/Tapeout%20test-no%20start-wheat?style=flat-square">
-    </a>
-</p>
+[English](README.en.md)
 
-## Features
-* Multiple clock source support
-    * high-speed extern osc clock
-    * low-speed extern osc clock
-    * audio extern osc clock
-* Programmable clock output
-* 4 division clock of core generation
-* Clock frequency configuration and core selection pin
+## 特性
+
+- 支持高速、低速和音频外部振荡器等多种时钟源
+- 可编程时钟输出
+- 生成四路 core 分频时钟
+- 支持时钟频率配置和 core 选择引脚
+
+当前源码未附完整寄存器手册，状态见[数据手册占位页](docs/datasheet.md)。

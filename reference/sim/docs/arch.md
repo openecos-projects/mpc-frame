@@ -1,5 +1,7 @@
 # 架构说明
 
+[English](arch.en.md)
+
 ## 源码组织
 
 - `hw/soc/top/` 存放 SoC 集成顶层。
