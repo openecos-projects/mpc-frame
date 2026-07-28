@@ -142,6 +142,48 @@ endmodule
                 "require at least one frame test", "\n".join(context.exception.errors)
             )
 
+    def test_creates_complete_design_from_template(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            output = Path(temp_dir) / "design"
+            manifest = design_registry.create_design_package(
+                REPOSITORY_ROOT / "designs" / "template",
+                output,
+                17,
+                "my-design",
+                "MyDesign",
+            )
+            design = design_registry.load_design(manifest)
+            self.assertEqual(design.design_id, 17)
+            self.assertEqual(design.module, "MyDesign")
+            self.assertEqual({test.kind for test in design.tests}, {"unit", "frame"})
+            self.assertTrue((output / "rtl" / "MyDesign.sv").is_file())
+            for generated in output.rglob("*"):
+                if generated.is_file():
+                    self.assertNotIn("@MODULE@", generated.read_text(encoding="utf-8"))
+
+    def test_create_refuses_existing_output_and_registered_id(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            self.make_design(root, "registered", 17, "registered")
+            registry = root / "registry.json"
+            registry.write_text(
+                json.dumps({"designs": ["registered/design.json"]}), encoding="utf-8"
+            )
+            output = root / "existing"
+            output.mkdir()
+            with self.assertRaises(design_registry.ManifestError) as context:
+                design_registry.create_design_package(
+                    REPOSITORY_ROOT / "designs" / "template",
+                    output,
+                    17,
+                    "new-design",
+                    "NewDesign",
+                    registry,
+                )
+            errors = "\n".join(context.exception.errors)
+            self.assertIn("refusing to overwrite", errors)
+            self.assertIn("design 17 is already registered", errors)
+
 
 if __name__ == "__main__":
     unittest.main()

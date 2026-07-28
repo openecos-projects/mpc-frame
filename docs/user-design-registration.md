@@ -1,5 +1,8 @@
 # User Design Registration
 
+面向首次接入用户的操作步骤见 [用户设计接入指南](user-guide.md)。本文档保留
+manifest、生成器和 registry 的详细技术契约。
+
 Stage 5 separates fast, self-contained user verification from final `FrameTop`
 integration. A user design package must be testable without compiling the
 reference SoC or any other user slot.
@@ -110,8 +113,8 @@ names.
   package does not require editing the root Makefile.
 
 The generator provides a check-only mode that compares regenerated content with
-the committed registry without modifying source files. This mode will be used
-by CI in stage 8.
+the committed registry without modifying source files. CI uses this mode to
+reject stale generated RTL.
 
 ## Validation
 

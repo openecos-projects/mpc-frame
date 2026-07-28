@@ -16,8 +16,9 @@
 - 已完成 JSON 用户设计注册、独立 wrapper、design 1 独立测试和 FrameTop 集成测试。
 - `make regression-fast` 和 `make regression` 已统一根检查、所有注册设计和 reference 验收入口。
 - 已接入单平台 CI，自动执行源码一致性、FrameTop 快速回归和 reference 完整验收。
+- 已提供可生成的用户 package 模板、中文接入指南和端到端模板验收。
 
-当前 design 0 参考链路、两个用户设计、统一回归和 CI 门禁均已可运行；后续主要工作是用户交付模板、工艺 pad wrapper 和约束。
+当前 design 0 参考链路、用户设计创建和注册、统一回归及 CI 门禁均已可运行；后续工作进入流片 pad wrapper、约束和工艺映射。
 
 ## 阶段计划
 
@@ -32,37 +33,19 @@
 | 6. FrameTop 仿真 | 已完成：建立统一顶层仿真入口 | 统一调度 SV package testbench 和 reference C++ harness；规范日志、FST 波形和 reference JSON 清单 | `scripts/run_regression.py`、`reference/sim/tests.json`、[仿真与回归](simulation-regression.md) | `make frame-test` 可运行 design 0 或任意注册用户设计；`TRACE=1` 产生非空 FST |
 | 7. 设计级回归 | 已完成：验证选择、mux 和多设计 IO 行为 | registry 驱动全部设计测试；覆盖 design 0、design 1、design 2、未注册槽位、复位、停钟、输入回读、高阻和外部 IO 争用检测 | design 2、IO contention monitor、分层日志、快速和完整回归入口 | `make regression-fast` 自动覆盖根契约和所有注册用户设计；`make regression` 增加完整 reference 验收 |
 | 8. 根工程质量门禁 | 已完成：防止用户接入破坏公共契约 | 固定工具版本；检查源码、manifest、filelist 和生成文件；分别执行 FrameTop 与 reference 回归；支持手动 FST | `.github/workflows/ci.yml`、`scripts/ci/install_verilator.sh`、[持续集成](ci.md) | push 和 PR 自动运行三项门禁，失败日志可下载，手动测试可下载波形 |
-| 9. 用户交付模板 | 形成可复制的用户工程入口 | 完善用户 README、设计目录模板、构建变量、错误提示和 IO map | `designs/template/`、用户指南 | 用户可以复制模板、注册设计并复用同一仿真命令 |
+| 9. 用户交付模板 | 已完成：形成可生成、可独立验证的用户工程入口 | 一键生成 package；提供 RTL、unit/FrameTop test、中文指南、冲突诊断和明确 IO map；CI 执行端到端模板 smoke test | `designs/template/`、`make create-design`、`make stage9-test`、[用户设计接入指南](user-guide.md) | 全新 package 可独立 lint 和 unit test，并通过临时 registry 接入 FrameTop，不修改正式 registry 或根 RTL |
 | 10. 流片准备 | 后续接入真实流片流程 | 加入 pad/IO 约束、时钟复位约束、工艺 wrapper、综合和顶层检查脚本 | `constraints/`、综合脚本、流片接口文档 | FrameTop 可进入目标工艺的综合和后续 signoff 流程 |
 
 ## 当前最缺失的内容
 
-### 1. `reference` 需要完成固定源码治理
-
-当前工作区中的 `reference/` 已经是普通源码目录，但还需要完成提交治理：确认哪些文件属于源码、排除构建输出，并记录参考设计版本和来源变更。
-
-### 2. 流片 pad wrapper 和约束尚未完成
+### 1. 流片 pad wrapper 和约束尚未完成
 
 Flash、PSRAM、UART 和 GPIO 已从 `FrameTop.user_io` 暴露，但还需要目标工艺的 pad cell、引脚位置、电气属性和时序约束。
 
-### 3. 用户交付模板仍需产品化
-
-`designs/1` 已证明完整流程，但阶段 9 仍需提供可复制的空模板、面向用户的中文接入指南和更清晰的常见错误说明。
-
-### 4. 工艺 ICG 映射留待流片阶段
+### 2. 工艺 ICG 映射留待流片阶段
 
 通用无毛刺 `FrameClockGate` 已完成并通过行为回归；目标工艺确定后，仍需在阶段 10 将其映射为具体 ICG 标准单元。
 
-### 5. IO 契约还需要更明确
-
-当前默认是 73 根 IO，其中 7 根用于 design ID，剩余 66 根作为 payload。需要在 IO map 中明确：
-
-- 设计选择位在 reset 期间的电平和采样窗口；
-- payload IO 的输入、输出和高阻行为；
-- 未注册设计的默认行为；
-- 参考 SoC 具体 pad 到 payload bit 的映射。
-
-当前参考设计映射固定为：UART0 使用 `user_io[8:7]`，SPI Flash 使用 `user_io[12:9]`，QSPI PSRAM 使用 `user_io[18:13]`，GPIO0/GPIO1 使用 `user_io[50:19]` 和 `user_io[72:51]`。
 
 ## 推荐执行顺序
 

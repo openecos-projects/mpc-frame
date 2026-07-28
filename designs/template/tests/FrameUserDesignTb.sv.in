@@ -1,0 +1,56 @@
+module @FRAME_TOP@;
+
+  localparam int IO_WIDTH = 73;
+  localparam int DESIGN_ID_WIDTH = 7;
+  localparam logic [DESIGN_ID_WIDTH-1:0] DESIGN_ID = 7'd@DESIGN_ID@;
+  localparam time HALF_PERIOD = 5ns;
+
+  logic clock = 1'b0;
+  logic reset = 1'b1;
+  logic [IO_WIDTH-1:0] test_io_out = '0;
+  logic [IO_WIDTH-1:0] test_io_oe = '0;
+  tri [IO_WIDTH-1:0] user_io;
+
+  always #(HALF_PERIOD) clock = ~clock;
+
+  for (genvar io_index = 0; io_index < IO_WIDTH; io_index++) begin : gen_test_io
+    assign user_io[io_index] = test_io_oe[io_index]
+      ? test_io_out[io_index]
+      : 1'bz;
+  end
+
+  FrameTop dut (
+    .clock(clock), .reset(reset), .user_io(user_io)
+  );
+
+  initial begin
+    logic heartbeat_snapshot;
+
+    test_io_oe[DESIGN_ID_WIDTH-1:0] = '1;
+    test_io_out[DESIGN_ID_WIDTH-1:0] = DESIGN_ID;
+    repeat (20) @(posedge clock);
+    @(negedge clock);
+    reset = 1'b0;
+    repeat (4) @(posedge clock);
+    #1ns;
+
+    if (!dut.selection_valid || !dut.design_selected[DESIGN_ID])
+      $fatal(1, "generated design was not selected through FrameTop");
+
+    test_io_oe[DESIGN_ID_WIDTH + 2] = 1'b1;
+    test_io_out[DESIGN_ID_WIDTH + 2] = 1'b1;
+    #1ns;
+    if (user_io[DESIGN_ID_WIDTH + 1] !== 1'b1)
+      $fatal(1, "generated design input did not reach FrameTop output");
+
+    heartbeat_snapshot = user_io[DESIGN_ID_WIDTH];
+    @(posedge clock);
+    #1ns;
+    if (user_io[DESIGN_ID_WIDTH] === heartbeat_snapshot)
+      $fatal(1, "generated design clock or output path is inactive");
+
+    $display("USER TEMPLATE FRAME TEST PASS");
+    $finish;
+  end
+
+endmodule

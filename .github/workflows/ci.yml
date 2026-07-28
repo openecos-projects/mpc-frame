@@ -44,7 +44,8 @@ jobs:
       - name: Validate source and generated files
         run: |
           set -euo pipefail
-          python -m py_compile scripts/design_registry.py scripts/run_regression.py
+          python -m py_compile scripts/design_registry.py scripts/run_regression.py \
+            scripts/test_user_template.py
           make manifest-test registry-check
           make registry-generate
           git diff --check
@@ -63,7 +64,9 @@ jobs:
       - name: Install Verilator
         run: scripts/ci/install_verilator.sh
       - name: Run FrameTop fast regression
-        run: make regression-fast
+        run: |
+          make stage9-test
+          make regression-fast
       - name: Upload failure logs
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

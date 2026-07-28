@@ -27,9 +27,16 @@ REFERENCE_FRAME_FILELIST := $(CURDIR)/reference/sim/hw/filelist/frame.f
 REFERENCE_IMAGE ?= $(CURDIR)/reference/sim/sw/bootrom/hello/retrosoc_fw.bin
 CONTROL_TEST_DIR := $(CURDIR)/build/control-test
 CONTENTION_TEST_DIR := $(CURDIR)/build/contention-test
+DESIGN_TEMPLATE := $(CURDIR)/designs/template
+DESIGN_ID ?=
+DESIGN_NAME ?=
+DESIGN_MODULE ?=
+DESIGN_OUTPUT ?= $(CURDIR)/designs/$(DESIGN_ID)
+CREATE_NAME_ARG := $(if $(DESIGN_NAME),--name $(DESIGN_NAME),)
+CREATE_MODULE_ARG := $(if $(DESIGN_MODULE),--module $(DESIGN_MODULE),)
 
 .PHONY: help lint lint-user registry-filelist registry-check registry-generate \
-	design-lint design-test design-frame-test manifest-test stage5-test \
+	create-design design-lint design-test design-frame-test manifest-test stage5-test stage9-test \
 	frame-test regression-fast regression control-test \
 	io-contention-test reference-verilate reference-sim reference-test clean
 
@@ -39,6 +46,7 @@ help:
 	@printf '%s\n' '  make design-lint DESIGN=designs/1'
 	@printf '%s\n' '  make design-test DESIGN=designs/1 [TEST=io]'
 	@printf '%s\n' '  make design-frame-test DESIGN=designs/1 [TEST=frame]'
+	@printf '%s\n' '  make create-design DESIGN_ID=3 [DESIGN_NAME=name] [DESIGN_MODULE=Top]'
 	@printf '%s\n' '  make frame-test DESIGN=<0|designs/id> [TEST=name] [TRACE=1]'
 	@printf '%s\n' '  make regression-fast [TRACE=1]  Run all registered design tests'
 	@printf '%s\n' '  make regression [TRACE=1]       Add the complete reference tests'
@@ -63,6 +71,12 @@ registry-generate:
 	@$(PYTHON) $(REGISTRY_TOOL) generate-registry \
 		--registry $(REGISTRY_MANIFEST) --output $(REGISTRY_RTL) \
 		--filelist $(REGISTRY_FILELIST)
+
+create-design:
+	@test -n "$(DESIGN_ID)" || (printf '%s\n' 'ERROR: DESIGN_ID is required (1..127)'; exit 2)
+	@$(PYTHON) $(REGISTRY_TOOL) create-design --id $(DESIGN_ID) \
+		--template $(DESIGN_TEMPLATE) --output $(DESIGN_OUTPUT) \
+		--registry $(REGISTRY_MANIFEST) $(CREATE_NAME_ARG) $(CREATE_MODULE_ARG)
 
 lint: registry-filelist registry-check
 	@$(VERILATOR) --lint-only --timing --Wall \
@@ -107,6 +121,9 @@ manifest-test:
 	@$(PYTHON) -m unittest discover -s tests/registry -p 'test_*.py'
 
 stage5-test: manifest-test design-test design-frame-test
+
+stage9-test: manifest-test
+	@$(PYTHON) $(CURDIR)/scripts/test_user_template.py
 
 frame-test:
 	@$(PYTHON) $(REGRESSION_TOOL) --root $(CURDIR) --trace $(TRACE) frame \

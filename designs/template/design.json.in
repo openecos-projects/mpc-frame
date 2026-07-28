@@ -1,0 +1,31 @@
+{
+  "id": @DESIGN_ID@,
+  "name": "@PACKAGE_NAME@",
+  "module": "@MODULE@",
+  "sources": [
+    "rtl/@MODULE@.sv"
+  ],
+  "include_dirs": [],
+  "defines": {},
+  "parameters": {
+    "IO_WIDTH": 66
+  },
+  "tests": [
+    {
+      "name": "io",
+      "kind": "unit",
+      "top": "@UNIT_TOP@",
+      "sources": [
+        "tests/@MODULE@Tb.sv"
+      ]
+    },
+    {
+      "name": "frame",
+      "kind": "frame",
+      "top": "@FRAME_TOP@",
+      "sources": [
+        "tests/Frame@MODULE@Tb.sv"
+      ]
+    }
+  ]
+}

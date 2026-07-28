@@ -20,6 +20,7 @@
 - `rtl/FrameClockGate.sv`：可映射到工艺 ICG 的通用无毛刺时钟门控。
 - `rtl/ReferenceDesign0.sv`：参考设计 adapter 边界。
 - `designs/registry.json`：参与 FrameTop 集成的用户设计清单。
+- `designs/template/`：通过 `make create-design` 使用的用户 package 模板。
 - `designs/1/`：可独立 lint 和仿真的用户设计包示例。
 - `designs/2/`：用于多设计注册、选择和隔离回归的最小设计。
 - `scripts/design_registry.py`：manifest 校验与 wrapper/registry 生成器。
@@ -37,6 +38,14 @@
 
 ## 快速检查
 
+创建一个新的用户设计 package：
+
+```sh
+make create-design DESIGN_ID=3
+```
+
+完整流程见 [用户设计接入指南](docs/user-guide.md)。已有设计的检查入口如下：
+
 ```sh
 make lint
 make control-test
@@ -46,6 +55,7 @@ make design-frame-test DESIGN=designs/1
 make frame-test DESIGN=designs/1 TEST=frame
 make frame-test DESIGN=0 TEST=boot
 make registry-check
+make stage9-test
 make regression-fast
 make regression
 ```

@@ -15,7 +15,15 @@ from typing import Any
 
 SEMANTIC_PORTS = ("clock", "reset", "io_in", "io_out", "io_oe")
 IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_$]*$")
+PACKAGE_NAME_RE = re.compile(r"^[a-z0-9][a-z0-9._-]*$")
 SOURCE_SUFFIXES = {".v", ".sv"}
+TEMPLATE_FILES = {
+    "design.json.in": "design.json",
+    "rtl/UserDesign.sv.in": "rtl/{module}.sv",
+    "tests/UserDesignTb.sv.in": "tests/{module}Tb.sv",
+    "tests/FrameUserDesignTb.sv.in": "tests/Frame{module}Tb.sv",
+    "README.md.in": "README.md",
+}
 
 
 class ManifestError(Exception):
@@ -360,6 +368,92 @@ def load_registry(manifest: Path) -> Registry:
     return Registry(manifest, tuple(sorted(designs, key=lambda design: design.design_id)))
 
 
+def create_design_package(
+    template_dir: Path,
+    output_dir: Path,
+    design_id: int,
+    name: str,
+    module: str,
+    registry_path: Path | None = None,
+) -> Path:
+    errors: list[str] = []
+    if not 1 <= design_id <= 127:
+        errors.append("id: design 0 is reserved; expected an integer in the range 1..127")
+    if not PACKAGE_NAME_RE.fullmatch(name):
+        errors.append(
+            "name: use lowercase letters, digits, '.', '_' or '-', starting with a letter or digit"
+        )
+    if not _is_identifier(module):
+        errors.append("module: expected a valid SystemVerilog identifier")
+
+    output_dir = output_dir.resolve()
+    if output_dir.exists():
+        errors.append(f"output: path already exists; refusing to overwrite: {output_dir}")
+
+    if registry_path is not None:
+        try:
+            registry = load_registry(registry_path)
+        except ManifestError as exc:
+            errors.extend(exc.errors)
+        else:
+            for design in registry.designs:
+                if design.design_id == design_id:
+                    errors.append(
+                        f"id: design {design_id} is already registered by {design.manifest}"
+                    )
+                if design.name == name:
+                    errors.append(
+                        f"name: {name!r} is already registered by {design.manifest}"
+                    )
+                if design.module == module:
+                    errors.append(
+                        f"module: {module} is already registered by {design.manifest}"
+                    )
+
+    template_dir = template_dir.resolve()
+    templates: list[tuple[str, str]] = []
+    for source_name, destination_pattern in TEMPLATE_FILES.items():
+        source = template_dir / source_name
+        try:
+            templates.append((destination_pattern, source.read_text(encoding="utf-8")))
+        except FileNotFoundError:
+            errors.append(f"template: required file does not exist: {source}")
+
+    if errors:
+        raise ManifestError(errors)
+
+    replacements = {
+        "@DESIGN_ID@": str(design_id),
+        "@PACKAGE_NAME@": name,
+        "@MODULE@": module,
+        "@UNIT_TOP@": f"{module}Tb",
+        "@FRAME_TOP@": f"Frame{module}Tb",
+    }
+    rendered_files: list[tuple[str, str]] = []
+    for destination_pattern, content in templates:
+        for token, value in replacements.items():
+            content = content.replace(token, value)
+        unresolved = sorted(set(re.findall(r"@[A-Z_]+@", content)))
+        if unresolved:
+            errors.append(
+                f"template: unresolved tokens in {destination_pattern}: "
+                f"{', '.join(unresolved)}"
+            )
+        rendered_files.append((destination_pattern, content))
+
+    if errors:
+        raise ManifestError(errors)
+
+    for destination_pattern, content in rendered_files:
+        destination = output_dir / destination_pattern.format(module=module)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_text(content, encoding="utf-8")
+
+    manifest = output_dir / "design.json"
+    load_design(manifest)
+    return manifest
+
+
 def _sv_value(value: Any) -> str:
     if isinstance(value, bool):
         return "1'b1" if value else "1'b0"
@@ -560,6 +654,14 @@ def _build_parser() -> argparse.ArgumentParser:
     validate_design = subparsers.add_parser("validate-design")
     validate_design.add_argument("--design", required=True, type=Path)
 
+    create_design = subparsers.add_parser("create-design")
+    create_design.add_argument("--id", required=True, type=int)
+    create_design.add_argument("--name")
+    create_design.add_argument("--module")
+    create_design.add_argument("--output", required=True, type=Path)
+    create_design.add_argument("--template", required=True, type=Path)
+    create_design.add_argument("--registry", type=Path)
+
     design_build = subparsers.add_parser("design-build")
     design_build.add_argument("--design", required=True, type=Path)
     design_build.add_argument("--output-dir", required=True, type=Path)
@@ -583,6 +685,13 @@ def main() -> int:
     try:
         if args.command == "validate-design":
             load_design(args.design)
+        elif args.command == "create-design":
+            name = args.name or f"user-design-{args.id}"
+            module = args.module or f"UserDesign{args.id}"
+            manifest = create_design_package(
+                args.template, args.output, args.id, name, module, args.registry
+            )
+            print(f"created {manifest}")
         elif args.command == "design-build":
             design = load_design(args.design)
             if args.kind == "frame":

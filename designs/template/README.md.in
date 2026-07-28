@@ -1,0 +1,21 @@
+# @PACKAGE_NAME@
+
+- Design ID: `@DESIGN_ID@`
+- Top module: `@MODULE@`
+
+`rtl/@MODULE@.sv` 中的 heartbeat 和输入回读只是可运行示例，请替换为实际设计，
+并同步修改 `tests/` 中的检查。保持 `clock/reset/io_in/io_out/io_oe` 五端口契约。
+
+独立检查：
+
+```sh
+make design-lint DESIGN=designs/@DESIGN_ID@
+make design-test DESIGN=designs/@DESIGN_ID@ TEST=io
+```
+
+加入 `designs/registry.json` 并执行 `make registry-generate` 后运行：
+
+```sh
+make design-frame-test DESIGN=designs/@DESIGN_ID@ TEST=frame
+make regression-fast
+```
