@@ -14,9 +14,9 @@
 - design 0 已接入单 NPC 核参考 SoC，并暴露 UART0、SPI Flash、QSPI PSRAM 和两组 GPIO。
 - 已建立以 `FrameTop` 为顶层的 Verilator 构建与参考设计功能回归。
 - 已完成 JSON 用户设计注册、独立 wrapper、design 1 独立测试和 FrameTop 集成测试。
-- `make lint`、`make control-test`、`make stage5-test`、`make reference-verilate` 和 `make reference-test` 构成当前验收入口。
+- `make regression-fast` 和 `make regression` 已统一根检查、所有注册设计和 reference 验收入口。
 
-当前 design 0 参考链路和 design 1 注册链路均已可运行；后续主要工作是扩展顶层回归、CI、用户交付模板、工艺 pad wrapper 和约束。
+当前 design 0 参考链路、两个用户设计和统一回归均已可运行；后续主要工作是 CI、用户交付模板、工艺 pad wrapper 和约束。
 
 ## 阶段计划
 
@@ -28,8 +28,8 @@
 | 3. 设计选择和时钟控制 | 已完成：保证运行时选择稳定且无毛刺 | 两级同步并锁存 design ID；通用无毛刺 clock gate；未选设计停钟并保持复位；选中设计延迟释放内部复位 | `rtl/FrameDesignControl.sv`、`rtl/FrameClockGate.sv`、`docs/design-control.md` | `make control-test` 已覆盖运行期锁定、重新选择、one-hot、复位、IO 隔离和门控脉冲 |
 | 4. 参考 SoC 接入 | 让设计 0 真正运行精简参考 SoC | 接入单 NPC core、UART0、SPI Flash、单颗 QSPI PSRAM 和 32+22 GPIO | `ReferenceDesign0` 实现、reference IO map、精简 filelist | 已完成：design 0 可从外部 Flash 接口取指并运行 |
 | 5. 用户设计注册 | 已完成：让设计 1～127 可独立测试并按清单集成 | 每个 `designs/<id>/design.json` 自包含源码和测试；根 `registry.json` 只选择最终集成包；生成 standalone wrapper、slot wrapper、registry、filelist 和 `design_present` | `designs/`、注册生成器、`rtl/generated/FrameDesignRegistry.sv`、[用户设计注册](user-design-registration.md) | `make stage5-test` 覆盖独立测试、注册集成和未注册槽位隔离 |
-| 6. FrameTop 仿真 | 建立真正的顶层仿真入口 | 驱动 clock/reset、design ID 和外部 IO；为 Flash/PSRAM 接入条件仿真模型 | Verilator harness、仿真 Makefile | design 0 和 design 1 已接入；后续补统一回归配置和波形入口 |
-| 7. 设计级回归 | 验证选择、mux 和 IO 行为 | 覆盖 design 0、design 1、未注册槽位、复位采样、设计切换禁止、输入回读、输出使能和高阻行为 | testbench、scoreboard、回归配置 | 核心场景已覆盖；后续增加多设计和异常 IO 争用场景 |
+| 6. FrameTop 仿真 | 已完成：建立统一顶层仿真入口 | 统一调度 SV package testbench 和 reference C++ harness；规范日志、FST 波形和 reference JSON 清单 | `scripts/run_regression.py`、`reference/sim/tests.json`、[仿真与回归](simulation-regression.md) | `make frame-test` 可运行 design 0 或任意注册用户设计；`TRACE=1` 产生非空 FST |
+| 7. 设计级回归 | 已完成：验证选择、mux 和多设计 IO 行为 | registry 驱动全部设计测试；覆盖 design 0、design 1、design 2、未注册槽位、复位、停钟、输入回读、高阻和外部 IO 争用检测 | design 2、IO contention monitor、分层日志、快速和完整回归入口 | `make regression-fast` 自动覆盖根契约和所有注册用户设计；`make regression` 增加完整 reference 验收 |
 | 8. 根工程质量门禁 | 防止用户接入破坏公共契约 | 增加 lint、filelist 检查、manifest 检查、模块接口检查和 CI | `.github/workflows/ci.yml`、检查脚本 | 每次提交自动完成根工程 lint 和最小仿真 |
 | 9. 用户交付模板 | 形成可复制的用户工程入口 | 完善用户 README、设计目录模板、构建变量、错误提示和 IO map | `designs/template/`、用户指南 | 用户可以复制模板、注册设计并复用同一仿真命令 |
 | 10. 流片准备 | 后续接入真实流片流程 | 加入 pad/IO 约束、时钟复位约束、工艺 wrapper、综合和顶层检查脚本 | `constraints/`、综合脚本、流片接口文档 | FrameTop 可进入目标工艺的综合和后续 signoff 流程 |

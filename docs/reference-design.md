@@ -35,11 +35,14 @@ frame 工程的基础入口为：
 
 ```sh
 make lint
-make lint-user
+make frame-test DESIGN=0 TEST=boot
 make reference-test
+make regression
 ```
 
 `FrameTop` 是工程的正式仿真 top；`FrameReferenceSoC` 是其中 design 0 使用的固定参考实现。reference 内部不再保留独立仿真顶层。
+
+reference 的回归项目由 `reference/sim/tests.json` 描述，外设模型和 C++ harness 继续归 `reference/sim/dv/verilator` 管理。根回归调度器只负责测试选择、日志和波形路径。
 
 ## Import Policy
 

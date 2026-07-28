@@ -18,6 +18,25 @@ module FrameDesignSlot1 #(
         .io_oe(io_oe)
     );
 endmodule
+module FrameDesignSlot2 #(
+    parameter int IO_WIDTH = 66
+) (
+    input  wire                  clock,
+    input  wire                  reset,
+    input  wire [IO_WIDTH-1:0]   io_in,
+    output wire [IO_WIDTH-1:0]   io_out,
+    output wire [IO_WIDTH-1:0]   io_oe
+);
+    UserDesign2 #(
+        .IO_WIDTH(IO_WIDTH)
+    ) u_design (
+        .clock(clock),
+        .reset(reset),
+        .io_in(io_in),
+        .io_out(io_out),
+        .io_oe(io_oe)
+    );
+endmodule
 
 module FrameDesignRegistry #(
     parameter int IO_WIDTH = 66,
@@ -30,7 +49,7 @@ module FrameDesignRegistry #(
     output wire [DESIGN_COUNT-1:0][IO_WIDTH-1:0]   designs_io_oe,
     output wire [DESIGN_COUNT-1:0]                 design_present
 );
-    localparam logic [127:0] DESIGN_PRESENT = 128'h00000000000000000000000000000003;
+    localparam logic [127:0] DESIGN_PRESENT = 128'h00000000000000000000000000000007;
 
     assign design_present = DESIGN_PRESENT;
 
@@ -52,6 +71,16 @@ module FrameDesignRegistry #(
         .io_in  (io_in),
         .io_out (designs_io_out[1]),
         .io_oe  (designs_io_oe[1])
+    );
+
+    FrameDesignSlot2 #(
+        .IO_WIDTH(IO_WIDTH)
+    ) u_design_2 (
+        .clock  (design_clock[2]),
+        .reset  (design_reset[2]),
+        .io_in  (io_in),
+        .io_out (designs_io_out[2]),
+        .io_oe  (designs_io_oe[2])
     );
 
     for (genvar design_index = 1; design_index < DESIGN_COUNT; design_index++) begin : gen_absent_design

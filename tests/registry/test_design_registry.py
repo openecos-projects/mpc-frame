@@ -26,11 +26,30 @@ endmodule
 """,
             encoding="utf-8",
         )
+        (package / "tests").mkdir()
+        (package / "tests" / "DutTb.sv").write_text(
+            "module DutUnitTb; endmodule\nmodule DutFrameTb; endmodule\n",
+            encoding="utf-8",
+        )
         manifest = {
             "id": design_id,
             "name": name,
             "module": "Dut",
             "sources": ["rtl/Dut.sv"],
+            "tests": [
+                {
+                    "name": "unit",
+                    "kind": "unit",
+                    "top": "DutUnitTb",
+                    "sources": ["tests/DutTb.sv"],
+                },
+                {
+                    "name": "frame",
+                    "kind": "frame",
+                    "top": "DutFrameTb",
+                    "sources": ["tests/DutTb.sv"],
+                },
+            ],
         }
         path = package / "design.json"
         path.write_text(json.dumps(manifest), encoding="utf-8")
@@ -105,6 +124,23 @@ endmodule
             with self.assertRaises(design_registry.ManifestError) as context:
                 design_registry.load_registry(registry_path)
             self.assertIn("path escapes", "\n".join(context.exception.errors))
+
+    def test_registered_design_requires_unit_and_frame_tests(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            design_path = self.make_design(root, "1", 1, "one")
+            manifest = json.loads(design_path.read_text(encoding="utf-8"))
+            manifest["tests"] = [manifest["tests"][0]]
+            design_path.write_text(json.dumps(manifest), encoding="utf-8")
+            registry_path = root / "registry.json"
+            registry_path.write_text(
+                json.dumps({"designs": ["1/design.json"]}), encoding="utf-8"
+            )
+            with self.assertRaises(design_registry.ManifestError) as context:
+                design_registry.load_registry(registry_path)
+            self.assertIn(
+                "require at least one frame test", "\n".join(context.exception.errors)
+            )
 
 
 if __name__ == "__main__":

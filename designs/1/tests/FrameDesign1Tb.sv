@@ -76,7 +76,7 @@ module FrameDesign1Tb;
     if (design_clock_edges != edge_snapshot)
       $fatal(1, "design 1 clock was not stopped during reset");
 
-    select_design(7'd2);
+    select_design(7'd3);
     if (dut.selection_valid || dut.design_clock_enable != '0)
       $fatal(1, "an unregistered design was enabled");
     if (user_io[DESIGN_ID_WIDTH] !== 1'bz ||

@@ -326,6 +326,13 @@ def load_registry(manifest: Path) -> Registry:
     seen_names: dict[str, Path] = {}
     seen_modules: dict[str, Path] = {}
     for design in designs:
+        test_kinds = {test.kind for test in design.tests}
+        for required_kind in ("unit", "frame"):
+            if required_kind not in test_kinds:
+                errors.append(
+                    f"{design.manifest}: registered designs require at least one "
+                    f"{required_kind} test"
+                )
         if design.design_id in seen_ids:
             errors.append(
                 f"{manifest}: duplicate design id {design.design_id}: "
@@ -490,6 +497,7 @@ def write_design_build(
     output_dir: Path,
     kind: str | None,
     test_name: str | None,
+    trace_file: Path | None,
 ) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     lines: list[str] = []
@@ -503,6 +511,22 @@ def write_design_build(
         test = _select_test(design, kind, test_name)
         lines.extend(str(path) for path in test.sources)
         top = test.top
+        if kind == "frame" and trace_file is not None:
+            trace_hook = output_dir / "FrameTraceHook.sv"
+            trace_path = str(trace_file.resolve()).replace("\\", "\\\\").replace('"', '\\"')
+            trace_hook.write_text(
+                f"""module FrameTraceHook;
+    initial begin
+        $dumpfile(\"{trace_path}\");
+        $dumpvars(0);
+    end
+endmodule
+
+bind {top} FrameTraceHook u_frame_trace_hook();
+""",
+                encoding="utf-8",
+            )
+            lines.append(str(trace_hook.resolve()))
     (output_dir / "sources.f").write_text("\n".join(lines) + "\n", encoding="utf-8")
     (output_dir / "top.txt").write_text(top + "\n", encoding="utf-8")
 
@@ -542,6 +566,7 @@ def _build_parser() -> argparse.ArgumentParser:
     design_build.add_argument("--kind", choices=("unit", "frame"))
     design_build.add_argument("--test")
     design_build.add_argument("--registry", type=Path)
+    design_build.add_argument("--trace-file", type=Path)
 
     for command in ("validate-registry", "registry-filelist", "generate-registry", "check-registry"):
         subparser = subparsers.add_parser(command)
@@ -572,7 +597,9 @@ def main() -> int:
                             f"{registry.manifest}; register it before running a frame test"
                         ]
                     )
-            write_design_build(design, args.output_dir, args.kind, args.test)
+            write_design_build(
+                design, args.output_dir, args.kind, args.test, args.trace_file
+            )
         else:
             registry = load_registry(args.registry)
             if args.command == "registry-filelist":

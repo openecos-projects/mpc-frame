@@ -48,7 +48,7 @@ The supported fields are:
 | `defines` | no | Compile defines; `null` means a value-less define |
 | `parameters` | no | Parameters passed to the actual user top |
 | `ports` | no | Semantic-to-actual port name mapping |
-| `tests` | no | Named `unit` or `frame` test declarations |
+| `tests` | registration requires it | Named `unit` or `frame` test declarations |
 
 For example, the standard port names require no `ports` entry. A design using
 `clk_i` can declare `"ports": {"clock": "clk_i"}` while the generated wrapper
@@ -79,6 +79,10 @@ make design-frame-test DESIGN=designs/1
 `design-frame-test` requires the selected package to be present in the root
 registry and reports that condition before invoking Verilator.
 
+Every registered package must declare at least one `unit` test and one `frame`
+test. An unregistered package may omit tests while its interface is being
+developed, but it can only run the commands supported by its current manifest.
+
 The generator reads `registry.json` and emits:
 
 - `rtl/generated/FrameDesignRegistry.sv`, committed to Git;
@@ -102,6 +106,8 @@ names.
 - `check-registry` compares regenerated content with the committed RTL without
   modifying it.
 - Manifest validation aggregates all discovered errors and exits nonzero.
+- Root regression discovers every declared test from the registry; adding a
+  package does not require editing the root Makefile.
 
 The generator provides a check-only mode that compares regenerated content with
 the committed registry without modifying source files. This mode will be used

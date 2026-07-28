@@ -1,4 +1,5 @@
 SOC_ROOT := $(abspath ../..)
+FRAME_ROOT := $(abspath $(SOC_ROOT)/../..)
 SHELL := /bin/bash
 VERILATOR ?= verilator
 TOP := FrameTop
@@ -48,6 +49,8 @@ VERILATOR_FLAGS += --Mdir $(OBJ_DIR) --top-module $(TOP)
 VERILATOR_FLAGS += -CFLAGS "-std=c++17 -O2 -DSIM_TOP_HEADER=\\\"V$(TOP).h\\\" -DSIM_TOP_CLASS=V$(TOP)"
 
 RTL_SOURCES := $(shell find $(SOC_ROOT)/hw -type f \( -name '*.v' -o -name '*.sv' -o -name '*.vh' -o -name '*.svh' -o -name '*.f' \))
+FRAME_RTL_SOURCES := $(FRAME_ROOT)/FrameTop.sv $(shell find $(FRAME_ROOT)/rtl $(FRAME_ROOT)/designs -type f \( -name '*.v' -o -name '*.sv' -o -name '*.vh' -o -name '*.svh' -o -name '*.f' -o -name '*.json' \))
+RTL_SOURCES += $(FRAME_RTL_SOURCES)
 HARNESS_SOURCES := $(shell find $(CURDIR)/csrc -type f \( -name '*.c' -o -name '*.cc' -o -name '*.cpp' -o -name '*.h' -o -name '*.hpp' \))
 SOC_PKG_INPUTS := $(SOC_ROOT)/config/memory.yml $(SOC_ROOT)/scripts/gen_soc_pkg.py
 

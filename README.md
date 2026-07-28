@@ -21,6 +21,7 @@
 - `rtl/ReferenceDesign0.sv`：参考设计 adapter 边界。
 - `designs/registry.json`：参与 FrameTop 集成的用户设计清单。
 - `designs/1/`：可独立 lint 和仿真的用户设计包示例。
+- `designs/2/`：用于多设计注册、选择和隔离回归的最小设计。
 - `scripts/design_registry.py`：manifest 校验与 wrapper/registry 生成器。
 - `rtl/generated/FrameDesignRegistry.sv`：已提交的确定性生成结果。
 - `docs/io-map.md`：用户自定义 pad 编号说明。
@@ -42,7 +43,13 @@ make control-test
 make design-lint DESIGN=designs/1
 make design-test DESIGN=designs/1
 make design-frame-test DESIGN=designs/1
+make frame-test DESIGN=designs/1 TEST=frame
+make frame-test DESIGN=0 TEST=boot
 make registry-check
+make regression-fast
+make regression
 ```
 
 用户包的独立 lint 和测试不要求写入根 registry。需要集成到 `FrameTop` 时，将其 `design.json` 路径加入 `designs/registry.json`，执行 `make registry-generate`，并提交更新后的生成 RTL。完整格式和流程见 [用户设计注册](docs/user-design-registration.md)。
+
+`make regression-fast` 运行根检查及所有已注册用户设计的 lint、unit 和 FrameTop 测试；`make regression` 在此基础上增加 reference Flash 启动、UART、GPIO 和 PSRAM 回归。传入 `TRACE=1` 后，FrameTop 测试的 FST 波形写入 `build/waves/`。完整回归契约见 [仿真与回归](docs/simulation-regression.md)。
