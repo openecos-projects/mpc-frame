@@ -15,6 +15,7 @@
 !/scripts/
 !/site/
 !/tests/
+!/spec/
 
 # QA notes are local discussion records and are not repository deliverables.
 /docs/*-qa.md
