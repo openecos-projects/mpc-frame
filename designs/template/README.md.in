@@ -52,13 +52,16 @@ make user-test
 make user-frame-test
 ```
 
+Frame 测试会自动检查外部 `test_io_oe` 与设计 `io_oe` 是否重叠。请保留
+Frame TB 中的 `reset`、`test_io_oe` 和 `dut` 名称；任意 payload 位由双方同时
+使能时，仿真都会直接报错，即使驱动值相同。
+
 最后运行提交前检查：
 
 ```sh
 make user-check
 ```
 
-推荐使用 Verilator 5.050；工程也验证过 5.032。构建脚本会自动跳过旧版本不认识
-的非关键警告参数。低于 5.032 的版本没有经过验证。
+当前框架要求使用 Verilator 5.050。构建脚本会自动探测非关键警告参数。
 
-完整中文步骤见 `../../docs/user-guide.md`。
+完整中文步骤见 `../../docs/cn/user-guide.md`。

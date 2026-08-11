@@ -1,57 +1,36 @@
 #!/usr/bin/env python3
-"""Check the repository's Chinese-first bilingual documentation convention."""
+"""Validate locale-first bilingual documentation and counterpart links."""
 
 from __future__ import annotations
 
+import os
 import re
 import sys
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+DOCS = ROOT / "docs"
 LINK_SCAN_LINES = 10
 HAN_RE = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff]")
 CHINESE_LINK_RE = re.compile(r"\[中文说明\]\([^)]+\)")
 
 
-def documentation_files() -> list[Path]:
-    files = [ROOT / "README.md", ROOT / "designs/template/README.md.in"]
-    for directory in (ROOT / "docs", ROOT / "reference"):
-        files.extend(directory.rglob("*.md"))
-        files.extend(directory.rglob("*.md.in"))
-    return sorted(
-        {
-            path
-            for path in files
-            if path.is_file()
-            and "qa" not in path.relative_to(ROOT).parts
-            and not path.name.endswith("-qa.md")
-        }
-    )
+def markdown_files(root: Path) -> dict[Path, Path]:
+    return {
+        path.relative_to(root): path
+        for path in root.rglob("*.md")
+        if "qa" not in path.relative_to(root).parts
+        and not path.name.endswith("-qa.md")
+    }
 
 
-def is_english(path: Path) -> bool:
-    return path.name.endswith(".en.md") or path.name.endswith(".en.md.in")
-
-
-def english_path(chinese: Path) -> Path:
-    if chinese.name.endswith(".md.in"):
-        return chinese.with_name(chinese.name.removesuffix(".md.in") + ".en.md.in")
-    return chinese.with_name(chinese.name.removesuffix(".md") + ".en.md")
-
-
-def chinese_path(english: Path) -> Path:
-    if english.name.endswith(".en.md.in"):
-        return english.with_name(english.name.removesuffix(".en.md.in") + ".md.in")
-    return english.with_name(english.name.removesuffix(".en.md") + ".md")
+def relative_link(source: Path, target: Path) -> str:
+    return Path(os.path.relpath(target, source.parent)).as_posix()
 
 
 def top_text(path: Path) -> str:
     return "\n".join(path.read_text(encoding="utf-8").splitlines()[:LINK_SCAN_LINES])
-
-
-def rendered_name(path: Path) -> str:
-    return path.name.removesuffix(".in")
 
 
 def has_link(text: str, label: str, target: str) -> bool:
@@ -61,42 +40,41 @@ def has_link(text: str, label: str, target: str) -> bool:
 
 def main() -> int:
     errors: list[str] = []
-    files = documentation_files()
+    cn_root = DOCS / "cn"
+    en_root = DOCS / "en"
+    cn_files = markdown_files(cn_root)
+    en_files = markdown_files(en_root)
 
-    for path in files:
-        relative = path.relative_to(ROOT)
-        content = path.read_text(encoding="utf-8")
-        if not content.strip():
-            errors.append(f"{relative}: document is empty")
+    root_markdown = sorted(DOCS.glob("*.md"))
+    for path in root_markdown:
+        errors.append(f"{path.relative_to(ROOT)}: documents must live below docs/cn or docs/en")
+
+    for relative in sorted(set(cn_files) | set(en_files)):
+        cn = cn_files.get(relative)
+        en = en_files.get(relative)
+        if cn is None:
+            errors.append(f"docs/en/{relative}: missing counterpart docs/cn/{relative}")
+            continue
+        if en is None:
+            errors.append(f"docs/cn/{relative}: missing counterpart docs/en/{relative}")
             continue
 
-        if is_english(path):
-            counterpart = chinese_path(path)
-            label = "中文说明"
-            english_body = CHINESE_LINK_RE.sub("", content)
-            if HAN_RE.search(english_body):
-                errors.append(
-                    f"{relative}: English document contains Chinese text outside "
-                    "the language link"
-                )
-        else:
-            counterpart = english_path(path)
-            label = "English"
-            if not HAN_RE.search(content):
-                errors.append(f"{relative}: Chinese primary document contains no Chinese text")
-
-        if not counterpart.is_file():
-            errors.append(
-                f"{relative}: missing counterpart {counterpart.relative_to(ROOT)}"
-            )
+        cn_content = cn.read_text(encoding="utf-8")
+        en_content = en.read_text(encoding="utf-8")
+        if not cn_content.strip() or not en_content.strip():
+            errors.append(f"docs/*/{relative}: document is empty")
             continue
+        if not HAN_RE.search(cn_content):
+            errors.append(f"docs/cn/{relative}: Chinese document contains no Chinese text")
+        if HAN_RE.search(CHINESE_LINK_RE.sub("", en_content)):
+            errors.append(f"docs/en/{relative}: English document contains Chinese body text")
 
-        target = rendered_name(counterpart)
-        if not has_link(top_text(path), label, target):
-            errors.append(
-                f"{relative}: first {LINK_SCAN_LINES} lines must contain "
-                f"[{label}]({target})"
-            )
+        en_target = relative_link(cn, en)
+        cn_target = relative_link(en, cn)
+        if not has_link(top_text(cn), "English", en_target):
+            errors.append(f"docs/cn/{relative}: expected [English]({en_target}) near the top")
+        if not has_link(top_text(en), "中文说明", cn_target):
+            errors.append(f"docs/en/{relative}: expected [中文说明]({cn_target}) near the top")
 
     if errors:
         print("Documentation check failed:", file=sys.stderr)
@@ -104,8 +82,7 @@ def main() -> int:
             print(f"  - {error}", file=sys.stderr)
         return 1
 
-    chinese_count = sum(not is_english(path) for path in files)
-    print(f"Documentation check passed: {chinese_count} bilingual pairs")
+    print(f"Documentation check passed: {len(cn_files)} locale pairs")
     return 0
 
 

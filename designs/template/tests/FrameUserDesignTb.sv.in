@@ -25,6 +25,9 @@ module @FRAME_TOP@;
 
   // test_io_out 是测试环境准备驱动的值；test_io_oe 对应位为 1 时才真正驱动。
   // test_io_out holds values from the test; test_io_oe enables each driven pin.
+  // 构建工具使用 reset、test_io_oe 和 dut 连接自动生成的争用检查，请勿重命名。
+  // The generated contention monitor connects through reset, test_io_oe, and
+  // dut, so keep these infrastructure names.
   logic clock = 1'b0;
   logic reset = 1'b1;
   logic [IO_WIDTH-1:0] test_io_out = '0;

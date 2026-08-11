@@ -1,0 +1,5 @@
+.DEFAULT_GOAL := dev-help
+
+include mk/common.mk
+include mk/user.mk
+include mk/dev.mk

@@ -1,0 +1,85 @@
+name: User Kit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "FrameTop.sv"
+      - "Makefile"
+      - "mk/common.mk"
+      - "mk/user.mk"
+      - "rtl/**"
+      - "designs/template/**"
+      - "designs/registry.json"
+      - "docs/**"
+      - "scripts/design_registry.py"
+      - "scripts/export_user_kit.py"
+      - "dev/site-docs.json"
+      - "dev/user-kit/**"
+      - "dev/user-kit.json"
+      - ".github/workflows/user-kit.yml"
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: user-kit-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  export-and-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - name: Check out source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          fetch-depth: 0
+      - name: Install Verilator
+        run: bash scripts/ci/install_verilator.sh
+      - name: Export user kit
+        run: make -f Makefile.dev export-user-kit
+      - name: Test exported workflow
+        run: |
+          test ! -e build/user-kit/dev
+          test ! -e build/user-kit/Makefile.dev
+          make -C build/user-kit doctor
+          make -C build/user-kit create NAME=release-smoke
+          make -C build/user-kit check DESIGN=designs/release-smoke
+          make -C build/user-kit trace DESIGN=designs/release-smoke
+          test -s build/user-kit/build/waves/release-smoke/frame.fst
+          make -C build/user-kit wave DESIGN=designs/release-smoke GTKWAVE=true
+      - name: Re-export clean user kit
+        run: |
+          make -f Makefile.dev export-user-kit
+          test ! -e build/user-kit/build
+          test ! -e build/user-kit/designs/release-smoke
+          test ! -e build/user-kit/dev
+          test ! -e build/user-kit/Makefile.dev
+      - name: Upload user kit
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: mpc-frame-user-kit
+          path: build/user-kit/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Publish release/user-kit branch
+        if: github.event_name != 'pull_request'
+        env:
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          export_dir="$PWD/build/user-kit"
+          staging_dir="$(mktemp -d)"
+          cp -a "$export_dir/." "$staging_dir/"
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git switch --orphan release-user-kit-work
+          git rm -rf --ignore-unmatch .
+          cp -a "$staging_dir/." .
+          git add -A
+          git commit -m "user-kit: export ${SOURCE_SHA}"
+          git push --force origin HEAD:release/user-kit

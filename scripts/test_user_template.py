@@ -47,13 +47,15 @@ def main() -> int:
     registry.write_text(json.dumps({"designs": []}), encoding="utf-8")
 
     common = [f"DESIGN={package}", f"REGISTRY_MANIFEST={registry}"]
-    run(["make", "design-lint", *common], root)
-    run(["make", "design-test", "TEST=io", *common], root)
-    run(["make", "design-frame-test", "TEST=frame", *common], root)
+    run(["make", "-f", "Makefile.dev", "design-lint", *common], root)
+    run(["make", "-f", "Makefile.dev", "design-test", "TEST=io", *common], root)
+    run(["make", "-f", "Makefile.dev", "design-frame-test", "TEST=frame", *common], root)
 
     run(
         [
             "make",
+            "-f",
+            "Makefile.dev",
             "integrate-design",
             f"DESIGN={package}",
             "DESIGN_ID=127",

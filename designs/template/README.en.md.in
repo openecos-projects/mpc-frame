@@ -55,14 +55,18 @@ temporary ID to an unregistered design:
 make user-frame-test
 ```
 
+Every Frame test automatically checks for overlap between external
+`test_io_oe` and design `io_oe`. Keep the `reset`, `test_io_oe`, and `dut`
+names in the Frame TB. The simulation fails if both sides enable any payload
+bit, even when they drive the same value.
+
 Before submitting, run:
 
 ```sh
 make user-check
 ```
 
-Verilator 5.050 is recommended, and 5.032 is also tested. The build scripts
-skip nonessential warning flags that an older version does not recognize.
-Versions older than 5.032 are not tested.
+The current frame requires Verilator 5.050. The build scripts probe
+nonessential warning flags before using them.
 
-See `../../docs/user-guide.en.md` for the complete English workflow.
+See `../../docs/en/user-guide.md` for the complete English workflow.
