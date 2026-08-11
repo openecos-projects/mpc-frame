@@ -45,13 +45,14 @@ jobs:
         run: |
           set -euo pipefail
           python -m py_compile scripts/design_registry.py scripts/run_regression.py \
-            scripts/test_user_template.py scripts/check_docs.py
-          make docs-check manifest-test registry-check
-          make registry-generate
+            scripts/test_user_template.py scripts/check_docs.py \
+            scripts/prepare_docs_site.py scripts/export_user_kit.py
+          make -f Makefile.dev docs-check manifest-test registry-check
+          make -f Makefile.dev registry-generate
           git diff --check
           git diff --exit-code
-          test -z "$(git ls-files build reference/sim/build)"
-          test -z "$(git ls-files 'docs/*-qa.md' 'docs/qa/**')"
+          test -z "$(git ls-files build dev/reference/sim/build)"
+          test -z "$(git ls-files 'docs/**/*-qa.md' 'docs/**/qa/**')"
 
   frame-regression:
     if: github.event_name != 'workflow_dispatch'
@@ -62,11 +63,11 @@ jobs:
       - name: Check out source
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
       - name: Install Verilator
-        run: scripts/ci/install_verilator.sh
+        run: bash scripts/ci/install_verilator.sh
       - name: Run FrameTop fast regression
         run: |
-          make stage9-test
-          make regression-fast
+          make -f Makefile.dev stage9-test
+          make -f Makefile.dev regression-fast
       - name: Upload failure logs
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -89,9 +90,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             binutils-riscv64-unknown-elf gcc-riscv64-unknown-elf
-          scripts/ci/install_verilator.sh
+          bash scripts/ci/install_verilator.sh
       - name: Run reference acceptance regression
-        run: make reference-test
+        run: make -f Makefile.dev reference-test
       - name: Upload failure logs
         if: failure()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
@@ -119,9 +120,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             binutils-riscv64-unknown-elf gcc-riscv64-unknown-elf
-          scripts/ci/install_verilator.sh
+          bash scripts/ci/install_verilator.sh
       - name: Run selected FrameTop test with trace
-        run: make frame-test DESIGN="$DESIGN_INPUT" TEST="$TEST_INPUT" TRACE=1
+        run: make -f Makefile.dev frame-test DESIGN="$DESIGN_INPUT" TEST="$TEST_INPUT" TRACE=1
       - name: Upload logs and waveforms
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02

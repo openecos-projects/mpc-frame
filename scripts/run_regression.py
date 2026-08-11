@@ -61,7 +61,7 @@ class RegressionRunner:
         return False
 
     def make(self, name: str, target: str, log_path: Path, **variables: str) -> bool:
-        command = ["make", target]
+        command = ["make", "-f", "Makefile.dev", target]
         command.extend(f"{key}={value}" for key, value in variables.items())
         return self.run(name, command, log_path)
 
@@ -92,8 +92,8 @@ class RegressionRunner:
         )
 
     def reference(self, selected: str | None = None) -> None:
-        manifest = self.root / "reference" / "sim" / "tests.json"
-        tests = load_reference_tests(manifest, self.root / "reference" / "sim")
+        manifest = self.root / "dev" / "reference" / "sim" / "tests.json"
+        tests = load_reference_tests(manifest, self.root / "dev" / "reference" / "sim")
         if selected is not None:
             tests = [test for test in tests if test.name == selected]
             if not tests:
@@ -112,17 +112,18 @@ class RegressionRunner:
         ):
             return
 
-        reference_root = self.root / "reference" / "sim"
+        reference_root = self.root / "dev" / "reference" / "sim"
         built_apps: set[tuple[str, ...]] = set()
         for test in tests:
             if test.build_variables and test.build_variables not in built_apps:
                 build_command = ["make", "-C", str(reference_root / "sw")]
                 build_command.extend(test.build_variables)
-                self.run(
+                if not self.run(
                     f"reference/{test.name}/software",
                     build_command,
                     self.log_root / "reference" / f"{test.name}-software.log",
-                )
+                ):
+                    continue
                 built_apps.add(test.build_variables)
 
             wave_file = self.wave_root / "reference" / f"{test.name}.fst"
@@ -135,7 +136,7 @@ class RegressionRunner:
                 str(reference_root / "dv" / "verilator"),
                 "sim",
                 "TOP=FrameTop",
-                f"RTL_FILELIST={self.root / 'reference/sim/hw/filelist/frame.f'}",
+                f"RTL_FILELIST={self.root / 'dev/reference/sim/hw/filelist/frame.f'}",
                 f"TRACE={1 if self.trace else 0}",
                 f"BOOTROM_IMAGE={test.image}",
                 f"WAVE_FILE={wave_file}",
@@ -221,7 +222,7 @@ def load_reference_tests(manifest: Path, reference_root: Path) -> list[Reference
         try:
             image.relative_to(reference_root.resolve())
         except ValueError as exc:
-            raise ValueError(f"{context}.image: path escapes reference/sim") from exc
+            raise ValueError(f"{context}.image: path escapes the reference root") from exc
 
         variables = []
         for field, make_name in variable_names.items():

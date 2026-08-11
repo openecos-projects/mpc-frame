@@ -1,0 +1,9 @@
+/build/
+**/__pycache__/
+**/*.pyc
+**/*.o
+**/*.log
+**/*.vcd
+**/*.fst
+**/*.fsdb
+**/obj_dir/

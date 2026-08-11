@@ -1,0 +1,13 @@
+{
+  "pages": [
+    "index.md",
+    "user-kit.md",
+    "user-guide.md",
+    "frame-mode.md",
+    "io-map.md",
+    "design-control.md",
+    "simulation-regression.md",
+    "examples/three-inverter.md",
+    "examples/counter-32bit.md"
+  ]
+}

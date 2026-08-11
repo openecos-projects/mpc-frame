@@ -1,0 +1,35 @@
+{
+  "files": [
+    ".gitignore",
+    "FrameTop.sv",
+    "Makefile",
+    "designs/registry.json",
+    "mk/common.mk",
+    "mk/user.mk",
+    "scripts/design_registry.py"
+  ],
+  "trees": [
+    "rtl",
+    "designs/template"
+  ],
+  "public_docs": {
+    "manifest": "dev/site-docs.json",
+    "exclude": [
+      "index.md"
+    ]
+  },
+  "overrides": [
+    {
+      "source": "dev/user-kit/README.md",
+      "destination": "README.md"
+    },
+    {
+      "source": "dev/user-kit/README.en.md",
+      "destination": "README.en.md"
+    },
+    {
+      "source": "dev/user-kit/.gitignore",
+      "destination": ".gitignore"
+    }
+  ]
+}

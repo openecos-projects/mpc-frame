@@ -6,22 +6,24 @@ on:
     paths:
       - "README*.md"
       - "docs/**"
-      - "reference/**/*.md"
-      - "site/**"
+      - "dev/site/**"
+      - "dev/site-docs.json"
       - "scripts/check_docs.py"
       - "scripts/prepare_docs_site.py"
-      - "Makefile"
+      - "Makefile.dev"
+      - "mk/dev.mk"
       - ".github/workflows/pages.yml"
   pull_request:
     branches: [main]
     paths:
       - "README*.md"
       - "docs/**"
-      - "reference/**/*.md"
-      - "site/**"
+      - "dev/site/**"
+      - "dev/site-docs.json"
       - "scripts/check_docs.py"
       - "scripts/prepare_docs_site.py"
-      - "Makefile"
+      - "Makefile.dev"
+      - "mk/dev.mk"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -49,13 +51,13 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: site/package-lock.json
+          cache-dependency-path: dev/site/package-lock.json
       - name: Set up Pages
         uses: actions/configure-pages@v5
       - name: Install dependencies
-        run: npm --prefix site ci
+        run: npm --prefix dev/site ci
       - name: Validate and build documentation
-        run: make docs-site-check
+        run: make -f Makefile.dev docs-site-check
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
         with:

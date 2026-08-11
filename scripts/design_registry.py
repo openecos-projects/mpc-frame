@@ -523,7 +523,7 @@ def find_user_design(
         raise ManifestError(
             [
                 f"{designs_root}: no unregistered user design found; "
-                "run 'make create-design DESIGN_NAME=<name>'"
+                "run 'make create NAME=<name>'"
             ]
         )
     names = ", ".join(str(path.parent) for path in candidates)
@@ -774,6 +774,36 @@ def _select_test(design: Design, kind: str, name: str | None) -> TestSpec:
     return candidates[0]
 
 
+def render_frame_contention_hook(top: str) -> str:
+    return f"""module FrameIoContentionMonitor #(
+    parameter int IO_WIDTH = 73,
+    parameter int DESIGN_ID_WIDTH = 7,
+    parameter int PAYLOAD_WIDTH = IO_WIDTH - DESIGN_ID_WIDTH
+) (
+    input wire                         reset,
+    input wire                         selection_valid,
+    input wire [IO_WIDTH-1:0]          test_io_oe,
+    input wire [PAYLOAD_WIDTH-1:0]     design_io_oe
+);
+    wire [PAYLOAD_WIDTH-1:0] contention_mask =
+        test_io_oe[IO_WIDTH-1:DESIGN_ID_WIDTH] & design_io_oe;
+
+    always_comb begin
+        if (!reset && selection_valid && |contention_mask)
+            $fatal(1, "payload IO contention: external and design OE overlap: %h",
+                   contention_mask);
+    end
+endmodule
+
+bind {top} FrameIoContentionMonitor u_frame_io_contention_monitor (
+    .reset           (reset),
+    .selection_valid (dut.selection_valid),
+    .test_io_oe      (test_io_oe),
+    .design_io_oe    (dut.payload_oe)
+);
+"""
+
+
 def write_design_build(
     design: Design,
     output_dir: Path,
@@ -798,6 +828,12 @@ def write_design_build(
             lines.append(f"+define+FRAME_TEST_DESIGN_ID={frame_design_id}")
         lines.extend(str(path) for path in test.sources)
         top = test.top
+        if kind == "frame":
+            contention_hook = output_dir / "FrameIoContentionHook.sv"
+            contention_hook.write_text(
+                render_frame_contention_hook(top), encoding="utf-8"
+            )
+            lines.append(str(contention_hook.resolve()))
         if kind == "frame" and trace_file is not None:
             trace_hook = output_dir / "FrameTraceHook.sv"
             trace_path = str(trace_file.resolve()).replace("\\", "\\\\").replace('"', '\\"')
