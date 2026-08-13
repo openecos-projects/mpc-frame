@@ -21,7 +21,8 @@ make wave DESIGN=designs/counter32
 
 ## 仓库边界
 
-- `FrameTop.sv`、`rtl/`：Frame 核心 RTL 和生成的设计 registry。
+- `FrameTop.sv`、`rtl/`：Frame 核心 RTL、生成的设计 registry，以及已提交的
+  `rtl/generated/user-designs.f` 源码 filelist。
 - `designs/template/`：用户设计模板。
 - `docs/cn/`、`docs/en/`：路径一一对应的双语文档源。
 - `mk/`、`Makefile`：稳定的用户构建入口。

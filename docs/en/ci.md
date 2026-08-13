@@ -21,8 +21,8 @@ Pushes and pull requests to `main` run three jobs:
   generated source freshness, and rejects committed build or QA output.
 - `frame-regression`: runs `make -f Makefile.dev regression-fast` for root lint, control, IO
   contention, and every registered user design's standalone and Frame tests.
-- `reference-regression`: runs `make -f Makefile.dev reference-test` for Flash boot, UART, both
-  GPIO groups, and PSRAM.
+- `reference-regression`: runs `make -f Makefile.dev reference-test` for Flash boot, UART,
+  both GPIO groups, and PSRAM. The target waits for completion by default.
 
 These jobs should be required by `main` branch protection. Pull request jobs
 have read-only repository permissions and use no repository secrets. Failure

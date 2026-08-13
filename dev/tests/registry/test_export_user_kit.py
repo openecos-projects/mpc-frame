@@ -12,6 +12,20 @@ import export_user_kit  # noqa: E402
 
 
 class ExportUserKitTest(unittest.TestCase):
+    def manifest_config(self):
+        return {
+            "files": [],
+            "trees": [],
+            "public_docs": {"manifest": "dev/site-docs.json", "exclude": ["index.md"]},
+            "generated": {
+                "registry": "designs/registry.json",
+                "rtl": "rtl/generated/FrameDesignRegistry.sv",
+                "filelist": "rtl/generated/user-designs.f",
+                "metadata": "FRAME_VERSION",
+            },
+            "overrides": [],
+        }
+
     def test_exports_only_allowlisted_public_docs(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -30,15 +44,7 @@ class ExportUserKitTest(unittest.TestCase):
             manifest = root / "dev" / "user-kit.json"
             manifest.write_text(
                 json.dumps(
-                    {
-                        "files": [],
-                        "trees": [],
-                        "public_docs": {
-                            "manifest": "dev/site-docs.json",
-                            "exclude": ["index.md"],
-                        },
-                        "overrides": [],
-                    }
+                    self.manifest_config()
                 ),
                 encoding="utf-8",
             )
@@ -50,6 +56,36 @@ class ExportUserKitTest(unittest.TestCase):
             self.assertTrue((output / "docs" / "en" / "guide.md").is_file())
             self.assertFalse((output / "docs" / "cn" / "index.md").exists())
             self.assertFalse((output / "docs" / "cn" / "maintainer.md").exists())
+
+    def test_registered_designs_are_removed_from_exported_frame(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "dev").mkdir()
+            (root / "docs" / "cn").mkdir(parents=True)
+            (root / "docs" / "en").mkdir(parents=True)
+            for locale in ("cn", "en"):
+                (root / "docs" / locale / "guide.md").write_text("guide\n", encoding="utf-8")
+            (root / "dev" / "site-docs.json").write_text(json.dumps({"pages": ["guide.md"]}), encoding="utf-8")
+            (root / "designs").mkdir()
+            (root / "designs" / "registry.json").write_text(
+                json.dumps({"designs": [{"id": 7, "manifest": "secret/design.json"}]}),
+                encoding="utf-8",
+            )
+            (root / "rtl" / "generated").mkdir(parents=True)
+            (root / "rtl" / "generated" / "FrameDesignRegistry.sv").write_text("secret\n", encoding="utf-8")
+            (root / "rtl" / "generated" / "user-designs.f").write_text("secret/rtl/Secret.sv\n", encoding="utf-8")
+            manifest = root / "dev" / "user-kit.json"
+            config = self.manifest_config()
+            config["public_docs"]["exclude"] = []
+            manifest.write_text(json.dumps(config), encoding="utf-8")
+            output = root / "build" / "user-kit"
+
+            export_user_kit.export_user_kit(root, output, manifest)
+
+            self.assertEqual(json.loads((output / "designs" / "registry.json").read_text()), {"designs": []})
+            self.assertNotIn("secret", (output / "rtl" / "generated" / "FrameDesignRegistry.sv").read_text())
+            self.assertEqual((output / "rtl" / "generated" / "user-designs.f").read_text(), "")
+            self.assertIn("FRAME_FORMAT_VERSION=1", (output / "FRAME_VERSION").read_text())
 
 
 if __name__ == "__main__":

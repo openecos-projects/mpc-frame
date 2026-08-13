@@ -18,6 +18,12 @@
       "index.md"
     ]
   },
+  "generated": {
+    "registry": "designs/registry.json",
+    "rtl": "rtl/generated/FrameDesignRegistry.sv",
+    "filelist": "rtl/generated/user-designs.f",
+    "metadata": "FRAME_VERSION"
+  },
   "overrides": [
     {
       "source": "dev/user-kit/README.md",

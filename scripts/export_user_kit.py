@@ -5,8 +5,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 from pathlib import Path
+
+from design_registry import Registry, render_registry, render_registry_filelist
 
 
 def resolve_child(root: Path, value: str, context: str) -> Path:
@@ -65,6 +68,39 @@ def copy_public_docs(root: Path, output: Path, config: object) -> None:
             copy_entry(root, output, str(Path("docs") / locale / page))
 
 
+def reset_generated_registry(output: Path, config: object) -> None:
+    """Make the user kit a blank development frame, independent of main's designs."""
+    if not isinstance(config, dict) or set(config) != {"registry", "rtl", "filelist", "metadata"}:
+        raise ValueError("generated: expected registry, rtl, filelist, and metadata")
+    registry_path = resolve_child(output, config["registry"], "generated.registry")
+    rtl_path = resolve_child(output, config["rtl"], "generated.rtl")
+    filelist_path = resolve_child(output, config["filelist"], "generated.filelist")
+    metadata_path = resolve_child(output, config["metadata"], "generated.metadata")
+    if (
+        registry_path.name != "registry.json"
+        or rtl_path.suffix != ".sv"
+        or filelist_path.suffix != ".f"
+        or metadata_path.name != "FRAME_VERSION"
+    ):
+        raise ValueError("generated: invalid registry, RTL, or filelist destination")
+    registry_path.parent.mkdir(parents=True, exist_ok=True)
+    registry_path.write_text(json.dumps({"designs": []}, indent=2) + "\n", encoding="utf-8")
+    rtl_path.parent.mkdir(parents=True, exist_ok=True)
+    rtl_path.write_text(render_registry(Registry(registry_path, ())), encoding="utf-8")
+    filelist_path.parent.mkdir(parents=True, exist_ok=True)
+    filelist_path.write_text(
+        render_registry_filelist(Registry(registry_path, ()), relative_to=output),
+        encoding="utf-8",
+    )
+    source_commit = os.environ.get("SOURCE_SHA") or os.environ.get("GITHUB_SHA") or "unknown"
+    metadata_path.parent.mkdir(parents=True, exist_ok=True)
+    metadata_path.write_text(
+        "FRAME_FORMAT_VERSION=1\n"
+        f"SOURCE_COMMIT={source_commit}\n",
+        encoding="utf-8",
+    )
+
+
 def export_user_kit(root: Path, output: Path, manifest: Path) -> None:
     root = root.resolve()
     output = output.resolve()
@@ -75,7 +111,7 @@ def export_user_kit(root: Path, output: Path, manifest: Path) -> None:
         raise ValueError("output must be a child directory of build/")
 
     config = json.loads(manifest.read_text(encoding="utf-8"))
-    expected_fields = {"files", "trees", "public_docs", "overrides"}
+    expected_fields = {"files", "trees", "public_docs", "overrides", "generated"}
     if not isinstance(config, dict) or set(config) != expected_fields:
         raise ValueError(
             f"{manifest}: expected only {', '.join(sorted(expected_fields))}"
@@ -101,6 +137,7 @@ def export_user_kit(root: Path, output: Path, manifest: Path) -> None:
                 f"overrides[{index}]: expected only source and destination"
             )
         copy_entry(root, output, override["source"], override["destination"])
+    reset_generated_registry(output, config["generated"])
 
 
 def main() -> int:

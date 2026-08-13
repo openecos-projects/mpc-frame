@@ -5,6 +5,9 @@
 This is the generated, user-facing subset of the `mpc-frame` maintainer
 repository. It contains FrameTop, the design template, required build tools,
 and bilingual user documentation.
+The root-level `FRAME_VERSION` records the frame format and source commit.
+The 128-design capacity belongs to maintainer integration; a user normally
+develops and submits one design package.
 
 ```sh
 make doctor

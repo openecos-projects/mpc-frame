@@ -21,7 +21,7 @@ CI 和本地用户流程都固定使用 5.050，以获得一致且可重复的�
 - `frame-regression`：运行 `make -f Makefile.dev regression-fast`，覆盖根 lint、控制面、IO
   争用以及全部注册用户设计的独立和 FrameTop 测试。
 - `reference-regression`：运行 `make -f Makefile.dev reference-test`，覆盖 Flash 启动、UART
-  收发、两组 GPIO 和 PSRAM 读写。
+  收发、两组 GPIO 和 PSRAM 读写；默认等待测试完成。
 
 建议在 GitHub 的 `main` branch protection 中将上述三个 job 设为 required
 status checks，并要求分支在合并前保持最新。PR 工作流只有源码读取权限，不使用

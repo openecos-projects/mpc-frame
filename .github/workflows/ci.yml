@@ -46,8 +46,9 @@ jobs:
           set -euo pipefail
           python -m py_compile scripts/design_registry.py scripts/run_regression.py \
             scripts/test_user_template.py scripts/check_docs.py \
-            scripts/prepare_docs_site.py scripts/export_user_kit.py
-          make -f Makefile.dev docs-check manifest-test registry-check
+            scripts/prepare_docs_site.py scripts/export_user_kit.py \
+            scripts/test_full_registry.py
+          make -f Makefile.dev docs-check manifest-test registry-check reference-filelist-check
           make -f Makefile.dev registry-generate
           git diff --check
           git diff --exit-code
@@ -67,6 +68,7 @@ jobs:
       - name: Run FrameTop fast regression
         run: |
           make -f Makefile.dev stage9-test
+          make -f Makefile.dev full-registry-test
           make -f Makefile.dev regression-fast
       - name: Upload failure logs
         if: failure()

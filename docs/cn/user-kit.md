@@ -4,7 +4,12 @@
 
 User Kit 是 `mpc-frame` 面向普通设计用户的精简发行版本。它只包含 FrameTop、
 用户设计模板、必要构建工具和用户文档，不包含 reference SoC、框架内部测试、
-文档站点源码或维护者回归入口。
+文档站点源码或维护者回归入口。发行包中的 registry 和生成 filelist 会重置为空
+的用户开发框架，维护者主仓库中已经注册的设计不会被复制到 User Kit。
+每次导出还会包含 `FRAME_VERSION`，记录框架格式版本和生成该发行包的源码提交。
+`128` 个设计是单个 `FrameTop` 在维护者集成阶段的容量上限。普通 User Kit
+项目只需开发并交付一个 `designs/<name>/` package，用户不需要创建 128 个设计，
+也不需要在本地填充 registry。
 
 ## 获取 User Kit
 

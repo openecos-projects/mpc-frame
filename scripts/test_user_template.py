@@ -15,6 +15,13 @@ def run(command: list[str], root: Path) -> None:
     subprocess.run(command, cwd=root, check=True)
 
 
+def run_expect_failure(command: list[str], root: Path) -> None:
+    print(f"$ {' '.join(command)} (expected failure)", flush=True)
+    result = subprocess.run(command, cwd=root)
+    if result.returncode == 0:
+        raise RuntimeError("command unexpectedly succeeded")
+
+
 def main() -> int:
     root = Path(__file__).resolve().parents[1]
     stage_root = root / "build" / "stage9"
@@ -69,6 +76,44 @@ def main() -> int:
     registered = json.loads(registry.read_text(encoding="utf-8"))["designs"]
     if registered != [{"id": 127, "manifest": "stage9-smoke/design.json"}]:
         raise RuntimeError(f"unexpected integrated registry: {registered}")
+
+    formal_files = (registry, registry_rtl, registry_filelist)
+    before_failure = {path: path.read_bytes() for path in formal_files}
+    failing_package = stage_root / "designs" / "stage9-failing"
+    run(
+        [
+            sys.executable,
+            "scripts/design_registry.py",
+            "create-design",
+            "--name",
+            "stage9-failing",
+            "--module",
+            "Stage9Failing",
+            "--template",
+            "designs/template",
+            "--output",
+            str(failing_package),
+        ],
+        root,
+    )
+    run_expect_failure(
+        [
+            "make",
+            "-f",
+            "Makefile.dev",
+            "integrate-design",
+            f"DESIGN={failing_package}",
+            "DESIGN_ID=126",
+            "TEST=missing-frame-test",
+            f"REGISTRY_MANIFEST={registry}",
+            f"REGISTRY_RTL={registry_rtl}",
+            f"REGISTRY_FILELIST={registry_filelist}",
+        ],
+        root,
+    )
+    after_failure = {path: path.read_bytes() for path in formal_files}
+    if before_failure != after_failure:
+        raise RuntimeError("failed integration changed formal registry files")
     print("STAGE 9 USER TEMPLATE TEST PASS")
     return 0
 

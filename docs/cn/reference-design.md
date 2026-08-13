@@ -42,6 +42,9 @@ make -f Makefile.dev reference-test
 make -f Makefile.dev regression
 ```
 
+维护者 reference 回归默认一直等待完成。可以使用 `REFERENCE_TEST=<name>` 单独
+运行某个 case；只有诊断时才设置 `REFERENCE_TIMEOUT=<seconds>`。
+
 `FrameTop` 是工程的正式仿真 top；`FrameReferenceSoC` 是其中 design 0 使用的固定参考实现。reference 内部不再保留独立仿真顶层。
 
 reference 的回归项目由 `dev/reference/sim/tests.json` 描述，外设模型和 C++ harness 继续归 `dev/reference/sim/dv/verilator` 管理。根回归调度器只负责测试选择、日志和波形路径。
