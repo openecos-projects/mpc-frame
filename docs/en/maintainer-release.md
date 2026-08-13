@@ -53,7 +53,10 @@ for 14 days.
 - `dev/site` contains only theme, configuration, and static assets.
 
 After changing either allowlist, run `docs-site-check` and the exported-kit
-smoke test.
+smoke test. The export step deliberately resets `designs/registry.json`,
+`rtl/generated/FrameDesignRegistry.sv`, and `rtl/generated/user-designs.f` to a
+design-0-only blank frame, so maintainer-integrated user RTL is never included
+in the public User Kit.
 
 ## Import a User Design
 
@@ -66,7 +69,17 @@ make -f Makefile.dev regression-fast
 make -f Makefile.dev reference-test
 ```
 
+Formal integration is transactional: registry validation, generated RTL, and the
+Frame test run against temporary files under `build/`. The permanent registry,
+`rtl/generated/FrameDesignRegistry.sv`, and `rtl/generated/user-designs.f` are
+replaced only after every check passes. A failed integration leaves all three
+permanent files unchanged.
+
 Do not require users to edit the permanent registry or select a final ID.
+
+The 128-slot limit applies to the aggregate maintainer FrameTop. It is not a
+requirement for an individual User Kit contributor: each contribution is one
+design package, and maintainers combine packages into the shared registry.
 
 ## Known Limitation
 

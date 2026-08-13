@@ -47,6 +47,10 @@ User Kit workflow 同时上传保留 14 天的 `mpc-frame-user-kit` artifact。
 
 修改白名单后必须运行 `docs-site-check` 和导出包 smoke test。
 
+导出步骤会刻意将 `designs/registry.json`、`rtl/generated/FrameDesignRegistry.sv`
+和 `rtl/generated/user-designs.f` 重置为仅保留 design 0 的空白 Frame，因此维护者
+主仓库中已经集成的用户 RTL 不会进入公开 User Kit。
+
 ## 接收用户设计
 
 用户交付单个 `designs/<name>/` package。维护者检查后执行：
@@ -58,7 +62,15 @@ make -f Makefile.dev regression-fast
 make -f Makefile.dev reference-test
 ```
 
+正式集成采用事务流程：命令先在 `build/` 临时 registry、生成 RTL 和 filelist
+上完成 registry 检查与 Frame 测试，全部通过后才一次性更新正式文件。失败时不会
+修改 `designs/registry.json`、`rtl/generated/FrameDesignRegistry.sv` 或
+`rtl/generated/user-designs.f`。
+
 不要要求用户在 User Kit 中修改正式 registry 或选择最终 ID。
+
+128 个槽位是维护者统一 FrameTop 的总容量，不是单个 User Kit 用户的开发要求。
+每次用户交付一个 design package，由维护者将多个 package 合并到共享 registry。
 
 ## 已知限制
 

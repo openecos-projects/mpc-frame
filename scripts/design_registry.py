@@ -6,7 +6,9 @@ from __future__ import annotations
 import argparse
 import difflib
 import json
+import os
 import re
+import shutil
 import sys
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -590,6 +592,56 @@ def integrate_design(registry_path: Path, design_path: Path, design_id: int) -> 
     _write(registry_path, json.dumps({"designs": entries}, indent=2) + "\n")
 
 
+def commit_registry(
+    staged_registry: Path,
+    staged_rtl: Path,
+    staged_filelist: Path,
+    registry_path: Path,
+    rtl_path: Path,
+    filelist_path: Path,
+) -> None:
+    """Replace the three formal integration inputs as one guarded operation."""
+    staged = (staged_registry.resolve(), staged_rtl.resolve(), staged_filelist.resolve())
+    targets = (registry_path.resolve(), rtl_path.resolve(), filelist_path.resolve())
+    missing = [str(path) for path in staged if not path.is_file()]
+    if missing:
+        raise ManifestError([f"staged integration file does not exist: {path}" for path in missing])
+
+    for target in targets:
+        target.parent.mkdir(parents=True, exist_ok=True)
+
+    backups: list[tuple[Path, Path]] = []
+    replacements: list[tuple[Path, Path]] = []
+    replaced: list[Path] = []
+    token = f"{os.getpid()}"
+    try:
+        for staged_path, target in zip(staged, targets):
+            next_path = target.with_name(f".{target.name}.next-{token}")
+            shutil.copy2(staged_path, next_path)
+            replacements.append((next_path, target))
+            if target.exists():
+                backup = target.with_name(f".{target.name}.backup-{token}")
+                shutil.copy2(target, backup)
+                backups.append((backup, target))
+        for next_path, target in replacements:
+            next_path.replace(target)
+            replaced.append(target)
+    except OSError as exc:
+        for next_path, _target in replacements:
+            next_path.unlink(missing_ok=True)
+        for backup, target in backups:
+            backup.replace(target)
+        for target in targets:
+            if target not in {backup_target for _backup, backup_target in backups} and target in replaced:
+                target.unlink(missing_ok=True)
+        raise ManifestError([f"could not commit staged integration files: {exc}"]) from exc
+    finally:
+        for next_path, _target in replacements:
+            next_path.unlink(missing_ok=True)
+        for backup, _target in backups:
+            backup.unlink(missing_ok=True)
+
+
 def prepare_frame_registry(registry: Registry, design: Design) -> tuple[Registry, int]:
     for registered in registry.designs:
         if registered.manifest == design.manifest:
@@ -755,11 +807,43 @@ def _filelist_lines(design: Design) -> list[str]:
     return lines
 
 
-def render_registry_filelist(registry: Registry) -> str:
+def render_registry_filelist(registry: Registry, *, relative_to: Path | None = None) -> str:
     lines: list[str] = []
     for design in registry.designs:
         lines.extend(_filelist_lines(design))
+    if relative_to is not None:
+        base = relative_to.resolve()
+        lines = [
+            os.path.relpath(line, base) if not line.startswith("+") else line
+            for line in lines
+        ]
     return "\n".join(lines) + ("\n" if lines else "")
+
+
+def _filelist_base(path: Path) -> Path | None:
+    """Use repository-relative source paths only for the committed RTL filelist."""
+    repository_root = Path(__file__).resolve().parents[1]
+    committed_filelist = (repository_root / "rtl" / "generated" / "user-designs.f").resolve()
+    return repository_root if path.resolve() == committed_filelist else None
+
+
+def check_reference_filelist(path: Path, repository_root: Path) -> None:
+    """Validate the checked-in reference filelist points at current frame inputs."""
+    try:
+        content = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise ManifestError([f"reference filelist cannot be read: {path}: {exc}"]) from exc
+    expected = "-f ../../../../../rtl/generated/user-designs.f"
+    errors = []
+    if expected not in content.splitlines():
+        errors.append(f"{path}: missing reference to rtl/generated/user-designs.f")
+    if "build/generated/user-designs.f" in content:
+        errors.append(f"{path}: uses obsolete build/generated/user-designs.f")
+    for source in ("rtl/FrameClockGate.sv", "rtl/FrameDesignControl.sv", "rtl/DesignIoMux.sv", "rtl/ReferenceDesign0.sv", "rtl/generated/FrameDesignRegistry.sv", "FrameTop.sv"):
+        if not (repository_root / source).is_file():
+            errors.append(f"{path}: required source is missing: {source}")
+    if errors:
+        raise ManifestError(errors)
 
 
 def _select_test(design: Design, kind: str, name: str | None) -> TestSpec:
@@ -908,13 +992,26 @@ def _build_parser() -> argparse.ArgumentParser:
     integrate.add_argument("--id", required=True, type=int)
     integrate.add_argument("--registry", required=True, type=Path)
 
+    commit = subparsers.add_parser("commit-registry")
+    commit.add_argument("--staged-registry", required=True, type=Path)
+    commit.add_argument("--staged-rtl", required=True, type=Path)
+    commit.add_argument("--staged-filelist", required=True, type=Path)
+    commit.add_argument("--registry", required=True, type=Path)
+    commit.add_argument("--output", required=True, type=Path)
+    commit.add_argument("--filelist", required=True, type=Path)
+
     for command in ("validate-registry", "registry-filelist", "generate-registry", "check-registry"):
         subparser = subparsers.add_parser(command)
         subparser.add_argument("--registry", required=True, type=Path)
-        if command in ("registry-filelist", "generate-registry"):
+        if command in ("registry-filelist", "generate-registry", "check-registry"):
             subparser.add_argument("--filelist", required=True, type=Path)
+            subparser.add_argument("--relative-to", type=Path)
         if command in ("generate-registry", "check-registry"):
             subparser.add_argument("--output", required=True, type=Path)
+
+    reference_filelist = subparsers.add_parser("check-reference-filelist")
+    reference_filelist.add_argument("--filelist", required=True, type=Path)
+    reference_filelist.add_argument("--root", required=True, type=Path)
     return parser
 
 
@@ -938,6 +1035,16 @@ def main() -> int:
         elif args.command == "integrate-design":
             integrate_design(args.registry, args.design, args.id)
             print(f"registered {args.design} as design {args.id}")
+        elif args.command == "commit-registry":
+            commit_registry(
+                args.staged_registry,
+                args.staged_rtl,
+                args.staged_filelist,
+                args.registry,
+                args.output,
+                args.filelist,
+            )
+            print(f"committed registry and generated integration files to {args.registry.parent}")
         elif args.command == "design-build":
             design = load_design(args.design)
             frame_design_id = None
@@ -960,15 +1067,21 @@ def main() -> int:
                 args.trace_file,
                 frame_design_id,
             )
+        elif args.command == "check-reference-filelist":
+            check_reference_filelist(args.filelist, args.root)
         else:
             registry = load_registry(args.registry)
+            relative_to = args.relative_to or _filelist_base(args.filelist)
             if args.command == "registry-filelist":
-                _write(args.filelist, render_registry_filelist(registry))
+                _write(args.filelist, render_registry_filelist(registry, relative_to=relative_to))
             elif args.command == "generate-registry":
                 _write(args.output, render_registry(registry))
-                _write(args.filelist, render_registry_filelist(registry))
+                _write(args.filelist, render_registry_filelist(registry, relative_to=relative_to))
             elif args.command == "check-registry":
                 if not _check(args.output, render_registry(registry)):
+                    print("run 'make registry-generate' to refresh it", file=sys.stderr)
+                    return 1
+                if not _check(args.filelist, render_registry_filelist(registry, relative_to=relative_to)):
                     print("run 'make registry-generate' to refresh it", file=sys.stderr)
                     return 1
     except ManifestError as exc:

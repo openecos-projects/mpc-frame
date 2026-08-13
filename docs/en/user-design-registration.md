@@ -57,6 +57,12 @@ the TB as `FRAME_TEST_DESIGN_ID`. No permanent source file changes.
 
 ## Permanent registry
 
+The permanent source filelist is `rtl/generated/user-designs.f`. It is generated
+from `designs/registry.json` and committed with the generated registry RTL, so a
+fresh checkout can compile `rtl/filelist.f` without first creating `build/`
+artifacts. The filelist contains every registered design source in deterministic
+registry-ID order; temporary Frame test filelists remain under `build/`.
+
 Permanent entries own both the ID and package path:
 
 ```json
@@ -86,8 +92,9 @@ A legacy manifest ID that disagrees with its registry ID is rejected.
   an isolated Frame registry;
 - `find-user-design` discovers one unregistered package;
 - `integrate-design` assigns the permanent ID;
-- `registry-filelist` and `generate-registry` build permanent integration files;
-- `check-registry` rejects stale generated RTL;
+- `registry-filelist` and `generate-registry` build the permanent RTL and
+  `rtl/generated/user-designs.f` integration files;
+- `check-registry` rejects stale generated RTL or filelists;
 - `regression-fast` runs all tests declared by the permanent registry.
 
 Permanent designs require both unit and Frame tests. ID 0 is reserved for the

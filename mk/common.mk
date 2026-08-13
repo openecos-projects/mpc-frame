@@ -21,7 +21,7 @@ VERILATOR_PROCASSINIT_FLAG = $(shell \
 REGISTRY_TOOL := $(FRAME_ROOT)/scripts/design_registry.py
 REGISTRY_MANIFEST ?= $(FRAME_ROOT)/designs/registry.json
 REGISTRY_RTL ?= $(FRAME_ROOT)/rtl/generated/FrameDesignRegistry.sv
-REGISTRY_FILELIST ?= $(FRAME_ROOT)/build/generated/user-designs.f
+REGISTRY_FILELIST ?= $(FRAME_ROOT)/rtl/generated/user-designs.f
 DESIGN_TEMPLATE := $(FRAME_ROOT)/designs/template
 
 DESIGN ?=

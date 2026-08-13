@@ -5,9 +5,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shlex
+import signal
 import subprocess
 import sys
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -32,7 +35,13 @@ class RegressionRunner:
         self.failures: list[str] = []
         self.passes = 0
 
-    def run(self, name: str, command: list[str], log_path: Path) -> bool:
+    def run(
+        self,
+        name: str,
+        command: list[str],
+        log_path: Path,
+        timeout: int | None = None,
+    ) -> bool:
         log_path.parent.mkdir(parents=True, exist_ok=True)
         command_text = shlex.join(command)
         print(f"\n=== RUN {name} ===", flush=True)
@@ -46,12 +55,35 @@ class RegressionRunner:
                 stderr=subprocess.STDOUT,
                 text=True,
                 bufsize=1,
+                start_new_session=(os.name != "nt"),
             )
+            timed_out = threading.Event()
+
+            def stop_process_group() -> None:
+                if process.poll() is not None:
+                    return
+                timed_out.set()
+                if os.name != "nt":
+                    os.killpg(process.pid, signal.SIGKILL)
+                else:
+                    process.kill()
+
+            timer = threading.Timer(timeout, stop_process_group) if timeout else None
+            if timer:
+                timer.start()
             assert process.stdout is not None
             for line in process.stdout:
                 sys.stdout.write(line)
                 log.write(line)
+            process.stdout.close()
             return_code = process.wait()
+            if timer:
+                timer.cancel()
+            if timed_out.is_set():
+                log.write(f"\nTIMEOUT after {timeout}s\n")
+                print(f"=== TIMEOUT {name} after {timeout}s ===", flush=True)
+                self.failures.append(name)
+                return False
         if return_code == 0:
             self.passes += 1
             print(f"=== PASS {name} ===", flush=True)
@@ -91,7 +123,7 @@ class RegressionRunner:
             **variables,
         )
 
-    def reference(self, selected: str | None = None) -> None:
+    def reference(self, selected: str | None = None, timeout: int | None = None) -> None:
         manifest = self.root / "dev" / "reference" / "sim" / "tests.json"
         tests = load_reference_tests(manifest, self.root / "dev" / "reference" / "sim")
         if selected is not None:
@@ -99,12 +131,6 @@ class RegressionRunner:
             if not tests:
                 raise ValueError(f"unknown reference test: {selected}")
 
-        if not self.make(
-            "reference/preflight",
-            "registry-filelist",
-            self.log_root / "reference" / "preflight.log",
-        ):
-            return
         if not self.make(
             "reference/registry-check",
             "registry-check",
@@ -122,6 +148,7 @@ class RegressionRunner:
                     f"reference/{test.name}/software",
                     build_command,
                     self.log_root / "reference" / f"{test.name}-software.log",
+                    timeout=timeout,
                 ):
                     continue
                 built_apps.add(test.build_variables)
@@ -147,6 +174,7 @@ class RegressionRunner:
                 f"reference/{test.name}",
                 command,
                 self.log_root / "reference" / f"{test.name}.log",
+                timeout=timeout,
             )
 
     def summary(self) -> int:
@@ -273,6 +301,7 @@ def _parser() -> argparse.ArgumentParser:
 
     reference = subparsers.add_parser("reference")
     reference.add_argument("--test")
+    reference.add_argument("--timeout", type=int)
 
     regression = subparsers.add_parser("regression")
     regression.add_argument("--mode", choices=("fast", "full"), required=True)
@@ -285,7 +314,7 @@ def main() -> int:
     runner = RegressionRunner(root, args.trace == "1")
     try:
         if args.command == "reference":
-            runner.reference(args.test)
+            runner.reference(args.test, args.timeout)
         elif args.command == "frame":
             if args.design == "0":
                 runner.reference(args.test or "boot")

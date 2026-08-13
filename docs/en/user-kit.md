@@ -5,7 +5,16 @@
 The User Kit is the user-facing `mpc-frame` distribution. It contains FrameTop,
 the user design template, required build tools, and user documentation. It does
 not contain the reference SoC, internal framework tests, documentation site
-sources, or maintainer regression entry points.
+sources, or maintainer regression entry points. Its registry and generated
+design filelist are reset to an empty user-development frame; designs registered
+in the maintainer repository are not copied into the kit.
+Each export also includes `FRAME_VERSION`, recording the frame format and source
+commit used to produce the kit.
+
+The `128`-design capacity is a maintainer-side integration limit for one
+`FrameTop`. A normal User Kit project develops and delivers one
+`designs/<name>/` package; users do not need to create 128 designs or populate
+the registry locally.
 
 ## Get the User Kit
 

@@ -51,6 +51,26 @@ class ReferenceManifestTest(unittest.TestCase):
 
 
 class ReferenceRunnerTest(unittest.TestCase):
+    def test_run_timeout_records_failure(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            runner = run_regression.RegressionRunner(root, trace=False)
+            log = root / "timeout.log"
+            self.assertFalse(
+                runner.run(
+                    "timeout-case",
+                    ["bash", "-c", "sleep 5"],
+                    log,
+                    timeout=1,
+                )
+            )
+            self.assertIn("TIMEOUT after 1s", log.read_text(encoding="utf-8"))
+
+    def test_reference_timeout_is_optional(self):
+        parser = run_regression._parser()
+        args = parser.parse_args(["reference"])
+        self.assertIsNone(args.timeout)
+
     def test_skips_simulation_after_software_build_failure(self):
         class FailingSoftwareRunner(run_regression.RegressionRunner):
             def __init__(self, root):
@@ -60,7 +80,7 @@ class ReferenceRunnerTest(unittest.TestCase):
             def make(self, name, target, log_path, **variables):
                 return True
 
-            def run(self, name, command, log_path):
+            def run(self, name, command, log_path, timeout=None):
                 self.run_names.append(name)
                 return not name.endswith("/software")
 

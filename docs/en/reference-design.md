@@ -43,6 +43,10 @@ make -f Makefile.dev reference-test
 make -f Makefile.dev regression
 ```
 
+Maintainer reference regression waits for completion by default. Use
+`REFERENCE_TEST=<name>` to isolate one case, or set
+`REFERENCE_TIMEOUT=<seconds>` only for diagnostic runs.
+
 `FrameTop` is the official simulation top. `FrameReferenceSoC` is its fixed
 design 0 implementation; the reference tree has no separate simulation top.
 `dev/reference/sim/tests.json` lists the reference regressions. Peripheral models

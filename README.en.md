@@ -23,7 +23,8 @@ Users only edit the generated `designs/<name>/rtl/` and
 
 ## Repository boundaries
 
-- `FrameTop.sv` and `rtl/`: frame RTL and the generated design registry.
+- `FrameTop.sv` and `rtl/`: frame RTL, the generated design registry, and the
+  committed `rtl/generated/user-designs.f` source filelist.
 - `designs/template/`: user design template.
 - `docs/cn/` and `docs/en/`: path-matched bilingual documentation sources.
 - `mk/` and `Makefile`: stable user build interface.

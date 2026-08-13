@@ -74,6 +74,12 @@ TB 通过编译宏 `FRAME_TEST_DESIGN_ID` 获得该 ID。临时内容不修改�
 
 ## 正式 registry
 
+正式源码 filelist 是 `rtl/generated/user-designs.f`。它由
+`designs/registry.json` 生成，并与生成的 registry RTL 一起提交，因此新
+clone 的工程无需先创建 `build/` 就可以直接编译 `rtl/filelist.f`。filelist
+按 registry ID 的确定性顺序列出全部正式设计源码；Frame 测试专用的临时
+filelist 仍保存在 `build/` 下。
+
 正式条目同时保存 ID 和 manifest 路径：
 
 ```json
@@ -104,9 +110,9 @@ TB 通过编译宏 `FRAME_TEST_DESIGN_ID` 获得该 ID。临时内容不修改�
   registry；
 - `find-user-design`：自动发现唯一未注册 package；
 - `integrate-design`：由维护者分配最终 ID；
-- `registry-filelist`：准备全部正式设计源码；
+- `registry-filelist`：生成正式的 `rtl/generated/user-designs.f`；
 - `generate-registry`：按 ID 确定性生成正式 wrapper、实例和 `design_present`；
-- `check-registry`：检查已提交生成 RTL 是否过期；
+- `check-registry`：检查已提交生成 RTL 和 filelist 是否过期；
 - `regression-fast`：遍历正式 registry 的所有测试。
 
 正式设计必须同时声明 unit 和 frame test。ID 0 保留给 reference，用户 ID 范围为

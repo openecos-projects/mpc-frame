@@ -85,6 +85,43 @@ endmodule
             self.assertIn("FrameDesignSlot1", first)
             self.assertIn("128'h00000000000000000000000000000003", first)
 
+    def test_full_128_slot_registry_generation(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            designs_root = root / "designs"
+            designs_root.mkdir()
+            entries = []
+            for design_id in range(1, 128):
+                name = f"design-{design_id:03d}"
+                module = f"Design{design_id:03d}"
+                manifest = self.make_design(
+                    designs_root,
+                    name,
+                    name,
+                    module=module,
+                )
+                entries.append(
+                    {"id": design_id, "manifest": f"{name}/design.json"}
+                )
+            registry_path = designs_root / "registry.json"
+            registry_path.write_text(json.dumps({"designs": entries}), encoding="utf-8")
+
+            registry = design_registry.load_registry(registry_path)
+            rendered = design_registry.render_registry(registry)
+            filelist = design_registry.render_registry_filelist(
+                registry, relative_to=root
+            )
+
+            self.assertEqual(len(registry.designs), 127)
+            self.assertIn(
+                "128'hffffffffffffffffffffffffffffffff",
+                rendered,
+            )
+            self.assertEqual(filelist.splitlines()[0], "designs/design-001/rtl/Dut.sv")
+            self.assertEqual(filelist.splitlines()[-1], "designs/design-127/rtl/Dut.sv")
+            self.assertEqual(len(filelist.splitlines()), 127)
+            self.assertEqual(rendered.count("FrameDesignSlot"), 254)
+
     def test_design_reports_multiple_errors(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
