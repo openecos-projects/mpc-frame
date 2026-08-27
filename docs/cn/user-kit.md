@@ -11,6 +11,28 @@ User Kit 是 `mpc-frame` 面向普通设计用户的精简发行版本。它只�
 项目只需开发并交付一个 `designs/<name>/` package，用户不需要创建 128 个设计，
 也不需要在本地填充 registry。
 
+## 发行包边界
+
+干净的 User Kit 根目录只包含：
+
+```text
+.gitignore
+FRAME_VERSION
+FrameTop.sv
+Makefile
+README.md
+README.en.md
+designs/
+docs/
+mk/
+rtl/
+scripts/
+```
+
+`build/` 不属于发行包。它只会在用户运行检查、仿真或波形命令后在本地生成，
+并由 User Kit 根目录的 `.gitignore` 排除。发行分支中也不包含 `dev/`、
+`Makefile.dev`、reference SoC、框架内部测试或站点维护源码。
+
 ## 获取 User Kit
 
 用户不需要 clone `main`。在维护者完成首次发布后，直接获取只读发行分支：

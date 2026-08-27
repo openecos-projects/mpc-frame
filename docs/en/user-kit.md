@@ -16,6 +16,29 @@ The `128`-design capacity is a maintainer-side integration limit for one
 `designs/<name>/` package; users do not need to create 128 designs or populate
 the registry locally.
 
+## Distribution Boundary
+
+A clean User Kit root contains only:
+
+```text
+.gitignore
+FRAME_VERSION
+FrameTop.sv
+Makefile
+README.md
+README.en.md
+designs/
+docs/
+mk/
+rtl/
+scripts/
+```
+
+`build/` is not part of the distribution. It is created locally only after the
+user runs checks, simulation, or waveform commands and is excluded by the
+root `.gitignore`. The distribution also excludes `dev/`, `Makefile.dev`, the
+reference SoC, internal framework tests, and site-maintenance sources.
+
 ## Get the User Kit
 
 Users do not need to clone `main`. After the first maintainer release, clone the

@@ -1,6 +1,5 @@
 {
   "files": [
-    ".gitignore",
     "FrameTop.sv",
     "Makefile",
     "designs/registry.json",

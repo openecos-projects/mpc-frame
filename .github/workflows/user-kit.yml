@@ -46,6 +46,8 @@ jobs:
         run: make -f Makefile.dev export-user-kit
       - name: Verify exported frame is unregistered
         run: |
+          test -f build/user-kit/.gitignore
+          test ! -e build/user-kit/build
           test "$(python -c 'import json; print(json.load(open("build/user-kit/designs/registry.json"))["designs"])')" = "[]"
           test ! -s build/user-kit/rtl/generated/user-designs.f
           ! grep -R "designs/[[:alnum:]._/-]*/rtl/" build/user-kit/rtl/generated build/user-kit/designs/registry.json
@@ -72,6 +74,7 @@ jobs:
           name: mpc-frame-user-kit
           path: build/user-kit/
           if-no-files-found: error
+          include-hidden-files: true
           retention-days: 14
 
   publish:
@@ -90,13 +93,15 @@ jobs:
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: mpc-frame-user-kit
-          path: build/user-kit
+          path: ${{ runner.temp }}/mpc-frame-user-kit
       - name: Publish release/user-kit branch
         env:
           SOURCE_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
-          export_dir="$PWD/build/user-kit"
+          export_dir="$RUNNER_TEMP/mpc-frame-user-kit"
+          test -f "$export_dir/.gitignore"
+          test ! -e "$export_dir/build"
           staging_dir="$(mktemp -d)"
           cp -a "$export_dir/." "$staging_dir/"
           git config user.name github-actions[bot]

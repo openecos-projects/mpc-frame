@@ -9,6 +9,12 @@ The root-level `FRAME_VERSION` records the frame format and source commit.
 The 128-design capacity belongs to maintainer integration; a user normally
 develops and submits one design package.
 
+The distribution root contains only `.gitignore`, `FRAME_VERSION`,
+`FrameTop.sv`, `Makefile`, the bilingual READMEs, and the `designs/`, `docs/`,
+`mk/`, `rtl/`, and `scripts/` directories. `build/` is not distribution
+content; it is generated locally only after checks or simulation and is ignored
+by `.gitignore`.
+
 ```sh
 make doctor
 make create NAME=counter32
