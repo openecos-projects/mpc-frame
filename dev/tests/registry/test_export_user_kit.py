@@ -87,6 +87,38 @@ class ExportUserKitTest(unittest.TestCase):
             self.assertEqual((output / "rtl" / "generated" / "user-designs.f").read_text(), "")
             self.assertIn("FRAME_FORMAT_VERSION=1", (output / "FRAME_VERSION").read_text())
 
+    def test_real_user_kit_has_only_public_root_entries(self):
+        build_root = REPOSITORY_ROOT / "build"
+        build_root.mkdir(exist_ok=True)
+        with tempfile.TemporaryDirectory(dir=build_root) as temp_dir:
+            output = Path(temp_dir) / "user-kit"
+
+            export_user_kit.export_user_kit(
+                REPOSITORY_ROOT,
+                output,
+                REPOSITORY_ROOT / "dev" / "user-kit.json",
+            )
+
+            self.assertEqual(
+                {path.name for path in output.iterdir()},
+                {
+                    ".gitignore",
+                    "FRAME_VERSION",
+                    "FrameTop.sv",
+                    "Makefile",
+                    "README.en.md",
+                    "README.md",
+                    "designs",
+                    "docs",
+                    "mk",
+                    "rtl",
+                    "scripts",
+                },
+            )
+            self.assertFalse((output / "build").exists())
+            self.assertFalse((output / "dev").exists())
+            self.assertFalse((output / "Makefile.dev").exists())
+
 
 if __name__ == "__main__":
     unittest.main()
