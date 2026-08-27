@@ -1,0 +1,72 @@
+// 中文：这是“单元测试”，只检查你的电路，不经过 FrameTop。
+//       标有“通常保留”的部分负责搭建测试环境；标有“按设计修改”的部分
+//       是你为自己的功能编写输入和检查结果的位置。
+// English: This is the unit test. It checks only your circuit, without FrameTop.
+//          Keep the test setup unless you know it must change. Edit the marked
+//          stimulus/check section to match your circuit.
+
+module @UNIT_TOP@;
+
+  // 通常保留 / Usually keep:
+  // 用户设计固定有 66 位 IO；测试时钟每 5 ns 翻转一次。
+  // A user design has 66 IO bits; the test clock toggles every 5 ns.
+  localparam int IO_WIDTH = 66;
+  localparam time HALF_PERIOD = 5ns;
+
+  // 通常保留 / Usually keep:
+  // 这些信号连接测试代码和你的设计。io_in 由测试写入，io_out/io_oe
+  // 由设计输出。
+  // These signals connect the test to your design. The test drives io_in;
+  // the design drives io_out and io_oe.
+  logic clock = 1'b0;
+  logic reset = 1'b1;
+  logic [IO_WIDTH-1:0] io_in = '0;
+  wire [IO_WIDTH-1:0] io_out;
+  wire [IO_WIDTH-1:0] io_oe;
+
+  always #(HALF_PERIOD) clock = ~clock;
+
+  // 不要修改模块名 UserDesignDut。构建工具会让它连接到你的顶层模块。
+  // Do not rename UserDesignDut. The build tool connects it to your top module.
+  UserDesignDut #(.IO_WIDTH(IO_WIDTH)) dut (
+    .clock(clock), .reset(reset), .io_in(io_in),
+    .io_out(io_out), .io_oe(io_oe)
+  );
+
+  // 按设计修改 / Edit for your design:
+  // 下面是模板示例的检查。替换示例逻辑后，也要替换这里的输入和判断。
+  // The checks below match the example circuit. Replace them when you replace
+  // the example RTL.
+  initial begin
+    // 保持复位两个时钟，检查复位时的初始输出。
+    // Hold reset for two clocks and check the initial outputs.
+    repeat (2) @(posedge clock);
+    #1ns;
+    if (io_out[0] !== 1'b0 || io_oe[1:0] !== 2'b11)
+      $fatal(1, "template reset or output-enable behavior is incorrect");
+    if (io_oe[IO_WIDTH-1:2] !== '0)
+      $fatal(1, "template unexpectedly enabled unused outputs");
+
+    // 模板把 io_in[2] 回送到 io_out[1]。
+    // The template copies io_in[2] to io_out[1].
+    io_in[2] = 1'b1;
+    #1ns;
+    if (io_out[1] !== 1'b1)
+      $fatal(1, "template input path is incorrect");
+
+    // 释放复位，确认模板 heartbeat 在下一个时钟变为 1。
+    // Release reset and check that the template heartbeat becomes 1.
+    @(negedge clock);
+    reset = 1'b0;
+    @(posedge clock);
+    #1ns;
+    if (io_out[0] !== 1'b1)
+      $fatal(1, "template heartbeat did not advance");
+
+    // 只有所有检查都通过才会执行到这里。
+    // This line is reached only when every check passes.
+    $display("USER TEMPLATE UNIT TEST PASS");
+    $finish;
+  end
+
+endmodule
